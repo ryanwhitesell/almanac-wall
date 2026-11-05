@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Almanac Wall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0d; --panel:#14161a; --panel2:#1b1e23; --line:#272b32; --text:#ece8e1; --muted:#a19d95; --dim:#6b6862; --accent:#e8b04a;
+  --serif:'Instrument Serif',Georgia,serif; --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+
+/* ---------- header ---------- */
+header{flex:none;padding:12px 16px 8px;border-bottom:1px solid var(--line);background:linear-gradient(#0f1114,#0b0c0e);position:relative;z-index:20}
+.row1{display:flex;align-items:center;gap:10px}
+.brand{font-family:var(--serif);font-size:24px;letter-spacing:.01em;white-space:nowrap}
+.brand i{color:var(--accent)}
+.spacer{flex:1}
+.yearctl{display:flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--panel);overflow:hidden}
+.yearctl button{background:none;border:0;width:34px;height:34px;font-size:18px;color:var(--muted)}
+.yearctl button:hover{color:var(--text);background:var(--panel2)}
+#year{width:64px;background:none;border:0;color:var(--text);font-family:var(--mono);font-size:16px;text-align:center;-moz-appearance:textfield;appearance:textfield}
+#year::-webkit-outer-spin-button,#year::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+#year:focus{outline:none}
+.pill{border:1px solid var(--line);background:var(--panel);border-radius:999px;height:36px;padding:0 14px;font-size:13px;color:var(--muted);white-space:nowrap}
+.pill:hover{color:var(--text)}
+.pill.on{background:var(--accent);color:#1a1408;border-color:var(--accent)}
+.dateline{display:flex;align-items:baseline;gap:12px;margin:8px 0 6px;flex-wrap:wrap}
+#dateTitle{font-family:var(--serif);font-size:clamp(28px,6vw,44px);line-height:1}
+#dateSub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.cal{display:flex;align-items:center;gap:6px}
+.cal .mnav{background:none;border:1px solid var(--line);border-radius:8px;width:30px;height:44px;color:var(--muted);flex:none}
+.cal .mnav:hover{color:var(--text)}
+#monthName{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em;width:38px;text-align:center;flex:none;color:var(--accent)}
+.days{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;flex:1;padding:2px 0;scroll-behavior:smooth}
+.days::-webkit-scrollbar{display:none}
+.day{flex:none;width:38px;height:44px;border-radius:8px;border:1px solid transparent;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-family:var(--mono);color:var(--muted)}
+.day b{font-weight:500;font-size:14px;color:var(--text)}
+.day small{font-size:9px;letter-spacing:.06em}
+.day.sun small{color:#c77}
+.day:hover{border-color:var(--line)}
+.day.sel{background:var(--accent);color:#1a1408}
+.day.sel b{color:#1a1408}
+.day.today{box-shadow:inset 0 -2px 0 var(--accent)}
+.day.sel.today{box-shadow:none}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:8px;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--muted);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--c,#888)}
+.chip span{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.chip.off{opacity:.38}
+.chip.zero{opacity:.25}
+
+/* ---------- stage ---------- */
+#stage{flex:1;position:relative;overflow:hidden;min-height:0}
+#backdrop{position:absolute;inset:-60px;background-size:cover;background-position:center;filter:blur(50px) saturate(.9);opacity:0;transform:scale(1.1);transition:opacity 1.2s}
+#backdrop.on{opacity:.2}
+#board{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;cursor:grab}
+#board.dragging{cursor:grabbing;user-select:none}
+#canvas{position:relative;min-height:100%;
+  background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1px);background-size:26px 26px;transition:opacity .3s}
+#canvas.dim{opacity:.35;pointer-events:none}
+.cluster-label{position:absolute;display:flex;align-items:baseline;gap:10px;pointer-events:none}
+.cluster-label h2{margin:0;font-family:var(--serif);font-weight:400;font-size:30px;color:var(--c);white-space:nowrap}
+.cluster-label span{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+
+.tile{position:absolute;border-radius:10px;overflow:hidden;background:var(--panel);
+  box-shadow:0 14px 34px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.07);
+  transform:rotate(var(--r)) translateY(14px);opacity:0;
+  transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .25s,opacity .5s;outline:none}
+.tile.in{opacity:1;transform:rotate(var(--r))}
+.tile:hover,.tile:focus-visible{transform:rotate(0) scale(1.035);z-index:10;box-shadow:0 22px 50px rgba(0,0,0,.7),0 0 0 1px var(--c)}
+.tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.85) contrast(1.05);transition:transform 6s ease}
+.tile:hover img{transform:scale(1.06)}
+.tile .ico{position:absolute;right:-14%;top:-10%;width:72%;color:var(--c);opacity:.13}
+.tile.noimg{background:radial-gradient(120% 90% at 85% 0%,color-mix(in srgb,var(--c) 22%,transparent),transparent 60%),var(--panel)}
+.tile .shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(7,8,10,.96) 0%,rgba(7,8,10,.7) 38%,rgba(7,8,10,.1) 72%,rgba(7,8,10,0) 100%)}
+.tile.noimg .shade{background:none}
+.tile .tape{position:absolute;top:-6px;left:50%;width:54px;height:16px;margin-left:-27px;background:rgba(236,232,225,.14);transform:rotate(-3deg);backdrop-filter:blur(2px)}
+.tile .body{position:absolute;left:0;right:0;bottom:0;padding:12px 12px 13px}
+.meta{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--c);margin-bottom:6px}
+.meta i{width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
+.hl{font-size:13.5px;line-height:1.36;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+.sub{font-size:12px;line-height:1.4;color:var(--muted);margin-top:6px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tile.featured .hl{font-family:var(--serif);font-size:clamp(20px,3.2vw,26px);line-height:1.12;-webkit-line-clamp:4}
+.tile.year .hl{font-family:var(--serif);font-size:19px;line-height:1.15}
+.badge{position:absolute;top:10px;left:10px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:4px;background:rgba(0,0,0,.55);color:var(--text);backdrop-filter:blur(4px)}
+
+#status{position:absolute;left:12px;bottom:12px;z-index:5;max-width:calc(100% - 24px);display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(15,17,20,.88);border:1px solid var(--line);font-size:12px;color:var(--muted);backdrop-filter:blur(8px);pointer-events:none}
+#status .spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--muted);font-size:14px;line-height:1.5}
+#empty h3{font-family:var(--serif);font-weight:400;font-size:28px;color:var(--text);margin:0 0 8px}
+
+/* ---------- drawer ---------- */
+#scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40}
+#scrim.on{opacity:1;pointer-events:auto}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:#101215;border-left:1px solid var(--line);z-index:50;transform:translateX(100%);transition:transform .35s cubic-bezier(.2,.8,.2,1);overflow-y:auto;-webkit-overflow-scrolling:touch}
+#drawer.open{transform:none}
+#close{position:sticky;top:10px;float:right;margin:10px 10px 0 0;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:rgba(16,18,21,.9);font-size:20px;line-height:1;z-index:2}
+#dbody{padding:0 20px 40px}
+.dfig{margin:0 -20px 16px;position:relative;background:#000}
+.dfig img{display:block;width:100%;max-height:52vh;object-fit:contain}
+.dfig figcaption{font-size:11.5px;color:var(--dim);padding:8px 20px;background:#0c0d10;line-height:1.4}
+.dfig figcaption a{color:var(--muted)}
+.dmeta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em;margin:16px 0 10px;padding-top:48px}
+.dfig + .dmeta{padding-top:0}
+.dmeta .chip{height:24px;color:var(--text)}
+#dbody h2{font-family:var(--serif);font-weight:400;font-size:28px;line-height:1.15;margin:0 0 12px}
+#dbody .lead{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 8px}
+#dbody h4{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:26px 0 10px}
+.src{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);text-decoration:none;margin-bottom:8px;transition:border-color .2s,background .2s}
+.src:hover{border-color:var(--c,var(--accent));background:var(--panel2)}
+.src img{width:56px;height:56px;object-fit:cover;border-radius:6px;flex:none;background:#000}
+.src .t{flex:1;min-width:0}
+.src b{display:block;font-weight:500;font-size:14px}
+.src em{display:block;font-style:normal;font-size:12px;color:var(--dim);margin-top:2px}
+.src p{margin:6px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.src .arr{color:var(--dim);font-size:15px;flex:none}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;margin:0}
+.kv dt{color:var(--dim);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
+.kv dd{margin:0;color:var(--muted);line-height:1.45;word-break:break-word}
+.note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:22px}
+
+@media (max-width:560px){
+  header{padding:10px 12px 6px}
+  .brand{font-size:21px}
+  .pill{padding:0 11px}
+  .cluster-label h2{font-size:26px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="row1">
+    <div class="brand">Almanac <i>Wall</i></div>
+    <div class="spacer"></div>
+    <div class="yearctl">
+      <button id="yPrev" aria-label="Previous year">−</button>
+      <input id="year" type="number" inputmode="numeric" min="1" aria-label="Year">
+      <button id="yNext" aria-label="Next year">+</button>
+    </div>
+    <button id="play" class="pill" title="Advance one day every few seconds">▶ Follow</button>
+  </div>
+  <div class="dateline"><span id="dateTitle"></span><span id="dateSub"></span></div>
+  <div class="cal">
+    <button class="mnav" id="mPrev" aria-label="Previous month">‹</button>
+    <div id="monthName"></div>
+    <button class="mnav" id="mNext" aria-label="Next month">›</button>
+    <div id="days" class="days"></div>
+  </div>
+  <div id="chips" class="chips"></div>
+</header>
+
+<main id="stage">
+  <div id="backdrop"></div>
+  <div id="board"><div id="canvas"></div></div>
+  <div id="empty"></div>
+  <div id="status"></div>
+</main>
+
+<div id="scrim"></div>
+<aside id="drawer" role="dialog" aria-modal="true" aria-label="Panel details">
+  <button id="close" aria-label="Close">×</button>
+  <div id="dbody"></div>
+</aside>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= constants ================= */
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MON3 = MONTHS.map(m => m.slice(0,3));
+const WD = ['S','M','T','W','T','F','S'];
+const NOW = new Date();
+const MAXY = NOW.getFullYear();
+
+const ICONS = {
+  war:'<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  science:'<path d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7 15h10"/>',
+  chip:'<rect x="7" y="7" width="10" height="10" rx="1"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/>',
+  pipe:'<path d="M2 7h9a5 5 0 0 1 5 5v10M2 13h7a1 1 0 0 1 1 1v8M2 5v10M14 22h8"/>',
+  camera:'<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8 7l1.5-3h5L16 7"/>',
+  space:'<circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="10.5" ry="3.5" transform="rotate(-20 12 12)"/>',
+  med:'<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
+  disaster:'<path d="M12 3 2 20h20zM12 10v5M12 17.5v.5"/>',
+  culture:'<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>'
+};
+const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
+
+/* Display order of clusters on the wall */
+const TOPICS = [
+  {id:'war', name:'War & Conflict', color:'#e2675a', icon:'war',
+   re:/\b(wars?\b|warfare|battle|army|armies|troops|invasion|invade|military|bomb|siege|armistice|naval|navy|soldiers?\b|missiles?\b|guerrilla|rebels?\b|coup\b|airstrike|cease-?fire|insurgen|offensive\b|massacre|hostage|terroris)/i,
+   search:'war OR battle OR military OR offensive OR conflict'},
+  {id:'science', name:'Science', color:'#6fd3a8', icon:'science',
+   re:/\b(scien|physic|chemi|biolog|discover|theory|laborator|nobel|fossil|telescope|genom|dna\b|astronom|mathemat|experiment|species|archaeolog|geolog)/i,
+   search:'science OR discovery OR physics OR Nobel OR archaeology'},
+  {id:'electronics', name:'Electronics & Tech', color:'#5cc8e8', icon:'chip',
+   re:/\b(electr|computer|transistor|semiconductor|radio|television|telephone|internet|software|microprocessor|telegraph|video games?\b|nintendo|atari|ibm\b|intel\b|microsoft|macintosh|laser|digital|broadcast)/i,
+   search:'computer OR electronics OR television OR software OR "video games"'},
+  {id:'plumbing', name:'Plumbing & Infrastructure', color:'#d9a15b', icon:'pipe',
+   re:/\b(plumb|water supply|sewer|sewage|pipelines?\b|pipes?\b|aqueduct|dams?\b|canal|reservoir|sanitation|waterworks|water main|irrigation|toilet|bridges?\b|tunnel|railway|railroad|subway|highway)/i,
+   search:'water OR pipeline OR dam OR bridge OR tunnel OR "rail transport"'},
+  {id:'pictures', name:'Pictures', color:'#f0d36a', icon:'camera', re:null, search:null},
+  {id:'space', name:'Space', color:'#8fa8ff', icon:'space',
+   re:/\b(space|nasa\b|orbit|satellite|moon\b|lunar|mars\b|rocket|astronaut|cosmonaut|space shuttle|planet|comet|spacecraft|soyuz|apollo|sputnik|voyager|hubble|asteroid)/i,
+   search:'spaceflight OR satellite OR rocket OR NASA OR astronaut'},
+  {id:'medicine', name:'Medicine & Health', color:'#ef8fb4', icon:'med',
+   re:/\b(medic|hospital|vaccin|disease|surg|virus|epidemic|pandemic|aids\b|hiv\b|transplant|penicillin|cancer|polio|health|physician|nurse|smallpox|cholera|plague|insulin)/i,
+   search:'health OR medicine OR epidemic OR disease OR vaccine'},
+  {id:'disaster', name:'Disasters', color:'#ff9a5c', icon:'disaster',
+   re:/\b(earthquake|hurricane|typhoon|cyclone|tornado|crash|disaster|explosion|explode|fire\b|blaze|tsunami|erupt|sinks|sank|capsiz|derail|famine|flood|avalanche|collapse|shipwreck)/i,
+   search:'earthquake OR hurricane OR disaster OR crash OR flood'},
+  {id:'culture', name:'Culture & Sport', color:'#c9a7f0', icon:'culture',
+   re:/\b(album|films?\b|movie|music|novel|painting|museum|premiere|broadway|songs?\b|olympic|championship|world cup|opera|theat|festival|cricket|football|baseball|basketball|chess|poet|artist)/i,
+   search:'film OR music OR art OR sport OR album'},
+  {id:'world', name:'World & Politics', color:'#a3b0c2', icon:'globe', re:null,
+   search:'election OR treaty OR summit OR protest'}
+];
+const TOPIC = Object.fromEntries(TOPICS.map(t => [t.id, t]));
+/* Priority for classifying an event sentence */
+const CLASS_ORDER = ['space','medicine','electronics','war','plumbing','disaster','science','culture'];
+
+/* ================= utilities ================= */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad2 = (n) => String(n).padStart(2,'0');
+function utc(y,m,d){ const t = new Date(Date.UTC(2000,0,1)); t.setUTCFullYear(y, m-1, d); return t; }
+function daysIn(y,m){ const t = utc(y,m,1); t.setUTCMonth(m); t.setUTCDate(0); return t.getUTCDate(); }
+const fmt = (dt) => `${MONTHS[dt.getUTCMonth()]} ${dt.getUTCDate()}, ${dt.getUTCFullYear()}`;
+const fmtShort = (dt) => `${MON3[dt.getUTCMonth()]} ${dt.getUTCDate()}`;
+const parser = new DOMParser();
+function strip(html){ if(!html) return ''; const doc = parser.parseFromString(String(html),'text/html'); return (doc.body.textContent||'').replace(/\s+/g,' ').trim(); }
+function hash(str){ let h = 2166136261; for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h,16777619); } return h>>>0; }
+function rng(seed){ let a = seed>>>0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a>>>15, 1|a); t = t + Math.imul(t ^ t>>>7, 61|t) ^ t; return ((t ^ t>>>14)>>>0)/4294967296; }; }
+function fileFromUrl(u){ const m = String(u||'').match(/\/wikipedia\/[^/]+\/(?:thumb\/)?[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)/); return m ? m[1] : null; }
+function prettyFile(f){ try{ return decodeURIComponent(f).replace(/_/g,' '); }catch{ return f.replace(/_/g,' '); } }
+function parseDate(s){
+  if(!s) return null; let m;
+  if((m = s.match(/(\d{4})-(\d{2})-(\d{2})/))) return utc(+m[1],+m[2],+m[3]);
+  const mn = MONTHS.join('|');
+  if((m = s.match(new RegExp(`(${mn})\\s+(\\d{1,2}),?\\s+(\\d{4})`,'i')))) return utc(+m[3], monthIdx(m[1]), +m[2]);
+  if((m = s.match(new RegExp(`(\\d{1,2})\\s+(${mn})\\s+(\\d{4})`,'i')))) return utc(+m[3], monthIdx(m[2]), +m[1]);
+  if((m = s.match(/(\d{4})-(\d{2})/))) return utc(+m[1],+m[2],15);
+  return null;
+}
+function monthIdx(name){ return MONTHS.findIndex(x => x.toLowerCase() === name.toLowerCase()) + 1; }
+
+const cache = new Map();
+function getJSON(url){
+  if(cache.has(url)) return cache.get(url);
+  const p = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  cache.set(url, p); p.catch(() => cache.delete(url));
+  return p;
+}
+async function pool(items, n, fn){
+  let i = 0, ok = 0, fail = 0;
+  const run = async () => { while(i < items.length){ const it = items[i++]; try{ await fn(it); ok++; }catch(e){ fail++; } } };
+  await Promise.all(Array.from({length:Math.min(n, items.length)}, run));
+  return {ok, fail};
+}
+function classify(text, extra){
+  for(const id of CLASS_ORDER) if(TOPIC[id].re.test(text)) return id;
+  if(extra) for(const id of CLASS_ORDER) if(TOPIC[id].re.test(extra)) return id;
+  return 'world';
+}
+
+/* ================= data sources ================= */
+async function onThisDay(m, d){
+  const mm = pad2(m), dd = pad2(d);
+  const urls = [
+    `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${mm}/${dd}`,
+    `https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/events/${mm}/${dd}`
+  ];
+  let last;
+  for(const u of urls){ try{ const j = await getJSON(u); return j.events || []; }catch(e){ last = e; } }
+  throw last || new Error('unavailable');
+}
+
+function pageInfo(p){
+  const title = p.titles?.normalized || p.normalizedtitle || String(p.title||'').replace(/_/g,' ');
+  return {
+    title,
+    url: p.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(String(p.title||'').replace(/ /g,'_'))}`,
+    desc: p.description || '',
+    extract: p.extract || '',
+    thumb: p.thumbnail?.source || ''
+  };
+}
+
+async function nearDate(y, m, d, span){
+  const base = utc(y, m, d).getTime();
+  const offsets = []; for(let k=-span; k<=span; k++) offsets.push(k);
+  const out = [];
+  const res = await pool(offsets, 6, async (k) => {
+    const dt = new Date(base + k*864e5);
+    const evs = await onThisDay(dt.getUTCMonth()+1, dt.getUTCDate());
+    const ty = dt.getUTCFullYear();
+    evs.forEach((e, idx) => {
+      if(e.year !== ty) return;
+      const pages = (e.pages || []);
+      const withImg = pages.find(p => p.thumbnail?.source);
+      let img = null;
+      if(withImg){
+        const o = withImg.originalimage;
+        const large = (o && o.width && o.width <= 1600 && !/\.tiff?$/i.test(o.source)) ? o.source : withImg.thumbnail.source;
+        img = {thumb: withImg.thumbnail.source, large, file: fileFromUrl(withImg.thumbnail.source)};
+      }
+      const extra = pages.map(p => `${p.description||''} ${(p.titles?.normalized||p.title||'')}`).join(' ');
+      out.push({
+        id: `e:${dt.toISOString().slice(5,10)}:${idx}`, kind:'event',
+        topic: classify(e.text||'', extra),
+        date: dt, offset: k, text: e.text || '', img,
+        pages: pages.map(pageInfo),
+        dayPage: `https://en.wikipedia.org/wiki/${MONTHS[dt.getUTCMonth()]}_${dt.getUTCDate()}`,
+        dayName: `${MONTHS[dt.getUTCMonth()]} ${dt.getUTCDate()}`
+      });
+    });
+  });
+  if(res.ok === 0) throw new Error('Could not reach Wikipedia');
+  return out;
+}
+
+async function yearTopic(y, t){
+  const q = `intitle:${y} ${t.search}`;
+  const url = 'https://en.wikipedia.org/w/api.php?' + new URLSearchParams({
+    action:'query', format:'json', origin:'*', generator:'search', gsrsearch:q, gsrlimit:'6', gsrnamespace:'0',
+    prop:'pageimages|extracts|info', piprop:'thumbnail|name', pithumbsize:'500',
+    exintro:'1', explaintext:'1', exsentences:'2', exlimit:'max', inprop:'url'
+  });
+  const j = await getJSON(url);
+  const pages = Object.values(j.query?.pages || {}).sort((a,b) => (a.index||0) - (b.index||0));
+  return pages
+    .filter(p => p.title !== String(y) && !/disambiguation/i.test(p.title))
+    .map(p => ({
+      id: 'y:' + p.title, kind:'year', topic: t.id, title: p.title, text: p.extract || '',
+      img: p.thumbnail?.source ? {thumb: p.thumbnail.source, large: p.thumbnail.source, file: p.pageimage ? encodeURIComponent(p.pageimage) : fileFromUrl(p.thumbnail.source)} : null,
+      pages: [{title: p.title, url: p.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title)}`, desc:'', extract: p.extract || '', thumb: p.thumbnail?.source || ''}],
+      query: q
+    }));
+}
+
+function commonsURL(q, n){
+  return 'https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
+    action:'query', format:'json', origin:'*', generator:'search', gsrnamespace:'6', gsrsearch:q, gsrlimit:String(n),
+    prop:'imageinfo', iiprop:'url|extmetadata', iiurlwidth:'960',
+    iiextmetadatafilter:'Artist|LicenseShortName|ImageDescription|DateTimeOriginal|ObjectName|Credit'
+  });
+}
+async function commonsPics(y, m, d){
+  const all = new Map();
+  const add = (j) => { for(const p of Object.values(j.query?.pages || {})) all.set(p.title, p); };
+  await Promise.all([`"${y}-${pad2(m)}" filetype:bitmap`, `"${MONTHS[m-1]} ${y}" filetype:bitmap`].map(async q => {
+    try{ add(await getJSON(commonsURL(q, 15))); }catch(e){}
+  }));
+  if(all.size < 4){ try{ add(await getJSON(commonsURL(`${y} photograph filetype:bitmap`, 12))); }catch(e){} }
+  const target = utc(y, m, d).getTime();
+  const out = [];
+  for(const p of all.values()){
+    const ii = p.imageinfo?.[0]; if(!ii || !ii.thumburl) continue;
+    const md = ii.extmetadata || {};
+    const dt = parseDate(strip(md.DateTimeOriginal?.value || ''));
+    if(dt && dt.getUTCFullYear() !== y) continue;
+    const name = p.title.replace(/^File:/,'').replace(/\.[a-z0-9]+$/i,'').replace(/_/g,' ');
+    out.push({
+      id: 'c:' + p.title, kind:'pic', topic:'pictures',
+      title: strip(md.ObjectName?.value) || name,
+      text: strip(md.ImageDescription?.value).slice(0, 600),
+      date: dt, dist: dt ? Math.abs(dt.getTime() - target)/864e5 : 9999,
+      img: {thumb: ii.thumburl, large: ii.thumburl},
+      fileUrl: ii.descriptionurl, fileName: p.title,
+      artist: strip(md.Artist?.value), license: strip(md.LicenseShortName?.value), credit: strip(md.Credit?.value)
+    });
+  }
+  out.sort((a,b) => a.dist - b.dist);
+  return out.slice(0, 8);
+}
+
+/* ================= state ================= */
+const state = { y:1987, m:NOW.getMonth()+1, d:NOW.getDate(), off:new Set(), items:[], span:7, featured:null };
+(function readHash(){
+  const m = location.hash.match(/^#(\d{1,4})-(\d{2})-(\d{2})$/);
+  if(m){ const y=+m[1], mo=+m[2], d=+m[3]; if(y>=1 && y<=MAXY && mo>=1 && mo<=12 && d>=1 && d<=daysIn(y,mo)){ state.y=y; state.m=mo; state.d=d; } }
+  if(state.d > daysIn(state.y, state.m)) state.d = daysIn(state.y, state.m);
+})();
+
+/* ================= header UI ================= */
+const yearIn = $('#year'); yearIn.max = MAXY;
+function setDate(y, m, d, opts={}){
+  y = Math.max(1, Math.min(MAXY, y|0));
+  d = Math.min(d, daysIn(y, m));
+  const changed = y!==state.y || m!==state.m || d!==state.d;
+  state.y = y; state.m = m; state.d = d;
+  renderHeader();
+  try{ history.replaceState(null, '', `#${y}-${pad2(m)}-${pad2(d)}`); }catch(e){}
+  if(changed || opts.force) load();
+}
+function stepDay(n){
+  // revolving: wraps inside the selected year
+  let doy = dayOfYear(state.y, state.m, state.d) + n;
+  const len = dayOfYear(state.y, 12, 31);
+  doy = ((doy - 1) % len + len) % len + 1;
+  const dt = new Date(utc(state.y,1,1).getTime() + (doy-1)*864e5);
+  setDate(state.y, dt.getUTCMonth()+1, dt.getUTCDate());
+}
+function stepMonth(n){ const m = ((state.m - 1 + n) % 12 + 12) % 12 + 1; setDate(state.y, m, state.d); }
+function dayOfYear(y,m,d){ return Math.round((utc(y,m,d) - utc(y,1,1))/864e5) + 1; }
+
+function renderHeader(){
+  const {y,m,d} = state;
+  if(document.activeElement !== yearIn) yearIn.value = y;
+  $('#dateTitle').textContent = `${MONTHS[m-1]} ${d}, ${y}`;
+  const wd = utc(y,m,d).toLocaleDateString('en-US',{weekday:'long', timeZone:'UTC'});
+  $('#dateSub').textContent = `${wd} · day ${dayOfYear(y,m,d)}`;
+  $('#monthName').textContent = MON3[m-1];
+  const box = $('#days'); box.innerHTML = '';
+  const n = daysIn(y,m);
+  const isToday = (dd) => m === NOW.getMonth()+1 && dd === NOW.getDate();
+  let selEl = null;
+  for(let i=1;i<=n;i++){
+    const b = document.createElement('button');
+    const wdi = utc(y,m,i).getUTCDay();
+    b.className = 'day' + (i===d?' sel':'') + (wdi===0?' sun':'') + (isToday(i)?' today':'');
+    b.innerHTML = `<small>${WD[wdi]}</small><b>${i}</b>`;
+    b.setAttribute('aria-label', `${MONTHS[m-1]} ${i}`);
+    b.onclick = () => { stopPlay(); setDate(y, m, i); };
+    box.appendChild(b);
+    if(i===d) selEl = b;
+  }
+  if(selEl) requestAnimationFrame(() => { box.scrollLeft = selEl.offsetLeft - box.clientWidth/2 + selEl.offsetWidth/2; });
+}
+
+$('#yPrev').onclick = () => setDate(state.y-1, state.m, state.d);
+$('#yNext').onclick = () => setDate(state.y+1, state.m, state.d);
+$('#mPrev').onclick = () => { stopPlay(); stepMonth(-1); };
+$('#mNext').onclick = () => { stopPlay(); stepMonth(1); };
+let yTimer;
+yearIn.addEventListener('input', () => {
+  clearTimeout(yTimer);
+  yTimer = setTimeout(() => { const v = parseInt(yearIn.value,10); if(v>=1 && v<=MAXY) setDate(v, state.m, state.d); }, 600);
+});
+yearIn.addEventListener('keydown', e => { if(e.key==='Enter'){ clearTimeout(yTimer); const v=parseInt(yearIn.value,10); if(v>=1&&v<=MAXY) setDate(v,state.m,state.d); yearIn.blur(); }});
+yearIn.addEventListener('blur', () => { yearIn.value = state.y; });
+
+let playTimer = null;
+function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; $('#play').classList.remove('on'); $('#play').textContent='▶ Follow'; } }
+$('#play').onclick = () => {
+  if(playTimer) return stopPlay();
+  $('#play').classList.add('on'); $('#play').textContent = '❚❚ Following';
+  playTimer = setInterval(() => stepDay(1), 7000);
+};
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') return closeDrawer();
+  if(e.target.tagName === 'INPUT' || $('#drawer').classList.contains('open')) return;
+  if(e.key === 'ArrowLeft'){ stopPlay(); stepDay(-1); }
+  if(e.key === 'ArrowRight'){ stopPlay(); stepDay(1); }
+});
+
+function renderChips(){
+  const box = $('#chips'); box.innerHTML = '';
+  const counts = {}; state.items.forEach(i => counts[i.topic] = (counts[i.topic]||0) + 1);
+  for(const t of TOPICS){
+    const b = document.createElement('button');
+    const c = counts[t.id] || 0;
+    b.className = 'chip' + (state.off.has(t.id) ? ' off' : '') + (c ? '' : ' zero');
+    b.style.setProperty('--c', t.color);
+    b.innerHTML = `<i></i>${esc(t.name)}<span>${c}</span>`;
+    b.onclick = () => { state.off.has(t.id) ? state.off.delete(t.id) : state.off.add(t.id); renderChips(); layout(); };
+    box.appendChild(b);
+  }
+}
+
+/* ================= loading ================= */
+let token = 0;
+function setStatus(html, spin){ $('#status').innerHTML = (spin ? '<div class="spin"></div>' : '') + `<span>${html}</span>`; }
+
+async function load(){
+  const my = ++token;
+  const {y, m, d} = state;
+  closeDrawer();
+  $('#canvas').classList.add('dim');
+  setStatus(`Gathering ${esc(MONTHS[m-1])} ${d}, ${y}…`, true);
+
+  const pNear = (async () => {
+    let span = 7, r = await nearDate(y, m, d, span);
+    if(r.length < 8){ span = 15; r = await nearDate(y, m, d, span); }
+    if(r.length < 4){ span = 30; r = await nearDate(y, m, d, span); }
+    return {items:r, span};
+  })();
+  const pYear = Promise.allSettled(TOPICS.filter(t => t.search).map(t => yearTopic(y, t)));
+  const pPics = commonsPics(y, m, d).catch(() => []);
+
+  const [rn, ry, rp] = await Promise.allSettled([pNear, pYear, pPics]);
+  if(my !== token) return;
+
+  const near = rn.status === 'fulfilled' ? rn.value.items : [];
+  state.span = rn.status === 'fulfilled' ? rn.value.span : 7;
+  const seen = new Set();
+  near.forEach(e => e.pages[0] && seen.add(e.pages[0].title));
+
+  // per-topic: near-date events first (closest), then year highlights
+  const byTopic = {};
+  near.sort((a,b) => Math.abs(a.offset) - Math.abs(b.offset) || a.offset - b.offset);
+  for(const e of near){ (byTopic[e.topic] ||= []); if(byTopic[e.topic].length < 10) byTopic[e.topic].push(e); }
+  if(ry.status === 'fulfilled'){
+    ry.value.forEach(r => {
+      if(r.status !== 'fulfilled') return;
+      let added = 0;
+      for(const it of r.value){
+        if(added >= 3 || seen.has(it.title)) continue;
+        seen.add(it.title); (byTopic[it.topic] ||= []).push(it); added++;
+      }
+    });
+  }
+  const pics = rp.status === 'fulfilled' ? rp.value : [];
+  if(pics.length) byTopic.pictures = pics;
+
+  state.items = TOPICS.flatMap(t => byTopic[t.id] || []);
+  const feat = near.filter(e => e.img).sort((a,b) => Math.abs(a.offset) - Math.abs(b.offset))[0]
+            || state.items.find(i => i.img) || null;
+  state.featured = feat ? feat.id : null;
+
+  const bd = $('#backdrop');
+  if(feat && feat.img){ bd.style.backgroundImage = `url("${feat.img.large.replace(/"/g,'%22')}")`; bd.classList.add('on'); }
+  else bd.classList.remove('on');
+
+  $('#canvas').classList.remove('dim');
+  renderChips();
+  layout(true);
+
+  const empty = $('#empty');
+  if(!state.items.length){
+    empty.style.display = 'flex';
+    empty.innerHTML = rn.status === 'rejected'
+      ? `<div><h3>Can't reach Wikipedia</h3>This wall loads live articles and pictures, so it needs an internet connection. Check your connection and pick a date again.</div>`
+      : `<div><h3>A quiet stretch</h3>Nothing recorded near this date for ${y}. Try another year or month.</div>`;
+    setStatus(rn.status === 'rejected' ? 'Offline or blocked' : 'No panels found');
+  } else {
+    empty.style.display = 'none';
+    setStatus(`${state.items.length} panels · events within ±${state.span} days + highlights of ${y} · drag to pan, tap for sources`);
+  }
+}
+
+/* ================= wall layout ================= */
+function layout(animate){
+  const board = $('#board'), canvas = $('#canvas');
+  canvas.querySelectorAll('.tile,.cluster-label').forEach(n => n.remove());
+  const vw = board.clientWidth || window.innerWidth;
+  const mobile = vw < 560;
+  const pad = mobile ? 14 : 40, gap = mobile ? 12 : 18, cgap = mobile ? 40 : 70;
+  const col = mobile ? Math.floor((vw - pad*2 - gap)/2) : 210;
+  const cw = col*2 + gap;
+
+  const groups = TOPICS
+    .map(t => ({t, items: state.items.filter(i => i.topic === t.id)}))
+    .filter(g => g.items.length && !state.off.has(g.t.id));
+  const featTopic = state.items.find(i => i.id === state.featured)?.topic;
+  groups.sort((a,b) => (b.t.id===featTopic) - (a.t.id===featTopic));
+
+  const fit = Math.max(1, Math.floor((vw - pad*2 + cgap)/(cw + cgap)));
+  const ncols = mobile ? 1 : Math.max(fit, Math.min(3, groups.length));
+  const colH = new Array(ncols).fill(pad + 6);
+  let order = 0;
+  const frag = document.createDocumentFragment();
+
+  for(const g of groups){
+    const R = rng(hash(`${state.y}-${state.m}-${state.d}-${g.t.id}`));
+    let c = 0; for(let i=1;i<ncols;i++) if(colH[i] < colH[c]) c = i;
+    const cx = pad + c*(cw + cgap) + (mobile ? 0 : (R()-.5)*30);
+    const cy = colH[c] + (mobile ? 0 : R()*24);
+
+    const lab = document.createElement('div');
+    lab.className = 'cluster-label';
+    lab.style.cssText = `left:${cx}px;top:${cy}px;--c:${g.t.color}`;
+    const nNear = g.items.filter(i => i.kind==='event').length;
+    lab.innerHTML = `<h2>${esc(g.t.name)}</h2><span>${g.items.length} ${g.items.length===1?'panel':'panels'}${nNear?` · ${nNear} near date`:''}</span>`;
+    frag.appendChild(lab);
+
+    const h = [cy + 54, cy + 54];
+    g.items.forEach((it) => {
+      const featured = it.id === state.featured;
+      const span2 = featured;
+      const w = span2 ? cw : col;
+      const len = (it.text || it.title || '').length;
+      let th;
+      if(featured) th = Math.round(w * (mobile ? .78 : .66));
+      else if(it.img) th = Math.round(col * (1.05 + R()*.35));
+      else th = Math.round(col * .62 + Math.min(150, len * .5));
+      let x, y;
+      if(span2){ y = Math.max(h[0], h[1]); x = cx; h[0] = h[1] = y + th + gap; }
+      else { const k = h[0] <= h[1] ? 0 : 1; y = h[k]; x = cx + k*(col + gap); h[k] = y + th + gap; }
+      const jx = (R()-.5) * (mobile ? 8 : 22), jy = (R()-.5) * 10;
+      const rot = ((R()-.5) * (featured ? 2 : 5)).toFixed(2);
+      frag.appendChild(tileEl(it, Math.round(x + jx), Math.round(y + jy), w, th, rot, featured, order++, animate));
+    });
+    colH[c] = Math.max(h[0], h[1]) + cgap;
+  }
+
+  const width = pad*2 + ncols*cw + (ncols-1)*cgap;
+  canvas.style.width = Math.max(vw, width) + 'px';
+  canvas.style.height = Math.max(...colH) + 40 + 'px';
+  canvas.appendChild(frag);
+  if(animate){ board.scrollTo({top:0, left:0}); }
+  requestAnimationFrame(() => requestAnimationFrame(() => canvas.querySelectorAll('.tile').forEach(t => t.classList.add('in'))));
+}
+
+function tileEl(it, x, y, w, h, rot, featured, order, animate){
+  const t = TOPIC[it.topic];
+  const el = document.createElement('div');
+  el.className = 'tile' + (featured ? ' featured' : '') + (it.img ? '' : ' noimg') + (it.kind==='year' ? ' year' : '');
+  el.tabIndex = 0; el.setAttribute('role','button');
+  el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;--r:${rot}deg;--c:${t.color};transition-delay:${animate ? Math.min(order*35, 900) : 0}ms`;
+
+  let label, headline, sub = '';
+  if(it.kind === 'event'){
+    label = it.offset === 0 ? `${fmtShort(it.date)} · this day` : `${fmtShort(it.date)} · ${Math.abs(it.offset)}d ${it.offset < 0 ? 'before' : 'after'}`;
+    headline = it.text;
+  } else if(it.kind === 'year'){
+    label = `${state.y} · from the year`; headline = it.title; if(!it.img || h > 230) sub = it.text;
+  } else {
+    label = it.date ? `${fmtShort(it.date)} · photo` : `${state.y} · photo`; headline = it.title;
+  }
+  const src = it.img ? (featured || w > 300 ? it.img.large : it.img.thumb) : '';
+  el.innerHTML =
+    (src ? `<img alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(src)}">` : '') +
+    `<div class="ico">${svg(t.icon)}</div><div class="shade"></div>` +
+    (R_TAPE(it.id) ? '<div class="tape"></div>' : '') +
+    (featured ? `<div class="badge">Nearest to ${esc(fmtShort(utc(state.y,state.m,state.d)))}</div>` : '') +
+    `<div class="body"><div class="meta"><i></i>${esc(label)}</div><div class="hl">${esc(headline)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`;
+  const img = el.querySelector('img');
+  if(img) img.onerror = () => { img.remove(); el.classList.add('noimg'); };
+  const open = () => { if(dragMoved) return; openItem(it); };
+  el.addEventListener('click', open);
+  el.addEventListener('keydown', e => { if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openItem(it); } });
+  return el;
+}
+function R_TAPE(id){ return hash(id) % 4 === 0; }
+
+let rT; let lastW = 0;
+window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { const w = $('#board').clientWidth; if(w !== lastW){ lastW = w; layout(false); } }, 200); });
+
+/* mouse drag-to-pan (touch uses native scrolling) */
+let dragMoved = false;
+(() => {
+  const board = $('#board'); let sx, sy, sl, st, down = false;
+  board.addEventListener('pointerdown', e => {
+    if(e.pointerType !== 'mouse' || e.button !== 0) return;
+    down = true; dragMoved = false; sx = e.clientX; sy = e.clientY; sl = board.scrollLeft; st = board.scrollTop;
+  });
+  window.addEventListener('pointermove', e => {
+    if(!down) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if(!dragMoved && Math.hypot(dx,dy) > 5){ dragMoved = true; board.classList.add('dragging'); }
+    if(dragMoved){ board.scrollLeft = sl - dx; board.scrollTop = st - dy; }
+  });
+  window.addEventListener('pointerup', () => { if(!down) return; down = false; board.classList.remove('dragging'); setTimeout(() => dragMoved = false, 0); });
+})();
+
+/* ================= detail drawer ================= */
+function srcCard(p, color){
+  return `<a class="src" style="--c:${color}" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">
+    ${p.thumb ? `<img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(p.thumb)}">` : ''}
+    <div class="t"><b>${esc(p.title)}</b>${p.desc ? `<em>${esc(p.desc)}</em>` : ''}${p.extract ? `<p>${esc(p.extract)}</p>` : ''}</div>
+    <span class="arr">↗</span></a>`;
+}
+function openItem(it){
+  const t = TOPIC[it.topic];
+  let html = '';
+  if(it.img){
+    let cap;
+    if(it.kind === 'pic') cap = `Wikimedia Commons · <a href="${esc(it.fileUrl)}" target="_blank" rel="noopener noreferrer">${esc(it.fileName.replace(/^File:/,''))}</a>`;
+    else if(it.img.file) cap = `Image: <a href="https://en.wikipedia.org/wiki/File:${esc(it.img.file)}" target="_blank" rel="noopener noreferrer">${esc(prettyFile(it.img.file))}</a> — author and license on the file page`;
+    else cap = 'Image from the linked Wikipedia article';
+    html += `<figure class="dfig"><img alt="" referrerpolicy="no-referrer" src="${esc(it.img.large)}" onerror="this.parentNode.remove()"><figcaption>${cap}</figcaption></figure>`;
+  }
+  const chip = `<span class="chip" style="--c:${t.color}"><i></i>${esc(t.name)}</span>`;
+
+  if(it.kind === 'event'){
+    const rel = it.offset === 0 ? 'the selected day' : `${Math.abs(it.offset)} day${Math.abs(it.offset)>1?'s':''} ${it.offset<0?'before':'after'} ${fmtShort(utc(state.y,state.m,state.d))}`;
+    html += `<div class="dmeta">${chip}<span>${esc(fmt(it.date))}</span><span>· ${esc(rel)}</span></div>`;
+    html += `<h2>${esc(it.text)}</h2>`;
+    html += `<h4>Sources</h4>`;
+    html += it.pages.map(p => srcCard(p, t.color)).join('');
+    html += srcCard({title:`Wikipedia · ${it.dayName}`, desc:'The day page where this event is listed', url: it.dayPage}, t.color);
+  } else if(it.kind === 'year'){
+    html += `<div class="dmeta">${chip}<span>${state.y}</span><span>· highlight from the year</span></div>`;
+    html += `<h2>${esc(it.title)}</h2>`;
+    if(it.text) html += `<p class="lead">${esc(it.text)}</p>`;
+    html += `<h4>Source</h4>` + srcCard({...it.pages[0], extract:''}, t.color);
+    html += `<p class="note">Found by searching Wikipedia for ${state.y} articles about ${esc(t.name.toLowerCase())}. It may not fall on this exact date — open the article to see when it happened.</p>`;
+  } else {
+    html += `<div class="dmeta">${chip}<span>${it.date ? esc(fmt(it.date)) : 'Date not recorded'}</span></div>`;
+    html += `<h2>${esc(it.title)}</h2>`;
+    if(it.text) html += `<p class="lead">${esc(it.text)}</p>`;
+    html += `<h4>Credits</h4><dl class="kv">` +
+      (it.artist ? `<dt>Author</dt><dd>${esc(it.artist)}</dd>` : '') +
+      (it.credit && it.credit !== it.artist ? `<dt>Credit</dt><dd>${esc(it.credit)}</dd>` : '') +
+      (it.license ? `<dt>License</dt><dd>${esc(it.license)}</dd>` : '') + `</dl>`;
+    html += `<h4>Source</h4>` + srcCard({title: it.fileName.replace(/^File:/,''), desc:'File page on Wikimedia Commons', url: it.fileUrl, thumb: it.img.thumb}, t.color);
+  }
+  html += `<p class="note">Text and images are loaded live from Wikipedia and Wikimedia Commons, where they're shared under free licenses. Open a source to read the full story or check image credits.</p>`;
+  $('#dbody').innerHTML = html;
+  $('#drawer').scrollTop = 0;
+  $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden','false');
+  $('#scrim').classList.add('on');
+  $('#close').focus({preventScroll:true});
+}
+function closeDrawer(){
+  $('#drawer').classList.remove('open'); $('#drawer').setAttribute('aria-hidden','true');
+  $('#scrim').classList.remove('on');
+}
+$('#close').onclick = closeDrawer;
+$('#scrim').onclick = closeDrawer;
+
+/* ================= go ================= */
+renderHeader();
+renderChips();
+lastW = $('#board').clientWidth;
+setDate(state.y, state.m, state.d, {force:true});
+})();
+</script>
+</body>
+</html>
