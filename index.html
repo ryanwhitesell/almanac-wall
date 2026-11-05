@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Almanac Wall</title>
+<title>Walmanac</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -34,7 +34,29 @@ header{flex:none;padding:12px 16px 8px;border-bottom:1px solid var(--line);backg
 .pill:hover{color:var(--text)}
 .pill.on{background:var(--accent);color:#1a1408;border-color:var(--accent)}
 .dateline{display:flex;align-items:baseline;gap:12px;margin:8px 0 6px;flex-wrap:wrap}
-#dateTitle{font-family:var(--serif);font-size:clamp(28px,6vw,44px);line-height:1}
+#dateTitle{font-family:var(--serif);font-size:clamp(28px,6vw,44px);line-height:1;color:var(--text);background:none;border:0;border-bottom:1px dashed transparent;border-radius:0;padding:0 0 2px;margin:0;max-width:100%;cursor:text;transition:border-color .2s,color .2s}
+#dateTitle:hover{border-bottom-color:var(--line)}
+#dateTitle:focus{outline:none;border-bottom-color:var(--accent)}
+#dateTitle.bad{border-bottom-color:#e2675a;color:#f3a097}
+#dateSub.hint{color:var(--muted)}
+.rangewrap{position:relative}
+.rangebtn{height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--muted)}
+.rangebtn:hover,.rangebtn[aria-expanded="true"]{color:var(--text);border-color:var(--accent)}
+.rangepop{position:absolute;top:calc(100% + 8px);left:0;z-index:30;width:min(340px,calc(100vw - 24px));padding:14px;border-radius:14px;background:#111317;border:1px solid var(--line);box-shadow:0 18px 44px rgba(0,0,0,.55)}
+.rangepop[hidden]{display:none}
+.rp-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:13px}
+.rp-k{width:38px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.rp-u{color:var(--muted)}
+.rp-step{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-size:16px;color:var(--muted)}
+.rp-step:hover{color:var(--text)}
+.rp-row input{width:48px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);text-align:center;font-family:var(--mono);font-size:14px;-moz-appearance:textfield;appearance:textfield}
+.rp-row input::-webkit-outer-spin-button,.rp-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.rp-presets{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.rp-presets button{height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--muted)}
+.rp-presets button.on{border-color:var(--accent);color:var(--text)}
+.rp-check{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--muted);line-height:1.35;margin-top:8px;cursor:pointer}
+.rp-check input{accent-color:var(--accent);margin:2px 0 0}
+.rangepop.auto .rp-row{opacity:.5}
 #dateSub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
 .cal{display:flex;align-items:center;gap:6px}
 .cal .mnav{background:none;border:1px solid var(--line);border-radius:8px;width:30px;height:44px;color:var(--muted);flex:none}
@@ -130,10 +152,52 @@ header{flex:none;padding:12px 16px 8px;border-bottom:1px solid var(--line);backg
 .kv dd{margin:0;color:var(--muted);line-height:1.45;word-break:break-word}
 .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:22px}
 
+/* ---------- gallery mode: pictures only, topics overlapping ---------- */
+.pill{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.pill b{font-weight:400}
+.pill svg{width:13px;height:13px}
+#pinCount{font-family:var(--mono);font-size:11px;color:var(--accent)}
+#pinCount:empty{display:none}
+.pinrow{display:flex;align-items:center;gap:14px;margin:0 0 10px}
+.pinbtn{height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:none;color:var(--accent);font-size:13px}
+.pinbtn.on{background:var(--accent);color:#1a1408}
+.pinlink{font-size:12.5px;color:var(--muted);text-decoration:none}
+.pinlink:hover{color:var(--text)}
+body.gallery{background:#000}
+body.gallery header{background:#000;border-bottom-color:transparent;padding-bottom:4px}
+body.gallery .brand,body.gallery .yearctl,body.gallery #play,body.gallery #boardLink,body.gallery .cal,body.gallery .chips{display:none}
+body.gallery .row1{position:absolute;top:10px;right:12px;z-index:2}
+body.gallery .dateline{margin:2px 0 4px}
+body.gallery .rangewrap{display:none}
+body.gallery #gallery{opacity:.45;transition:opacity .2s}
+body.gallery #gallery:hover{opacity:1}
+body.gallery #backdrop{display:none}
+body.gallery #board{overflow:hidden;cursor:default}
+body.gallery #canvas{background:none;perspective:1400px}
+body.gallery #status:not(:has(.spin)){display:none}
+.ptile{position:absolute;outline:none;cursor:pointer;opacity:0;
+  transform:translate(-50%,-50%) translate(0px,0px) rotate(var(--r)) rotateX(var(--tx)) rotateY(var(--ty)) translateZ(var(--z)) scale(.9);
+  transition:transform .5s cubic-bezier(.2,.8,.2,1),opacity .5s,filter .3s}
+.ptile.in{opacity:1;transform:translate(-50%,-50%) translate(0px,0px) rotate(var(--r)) rotateX(var(--tx)) rotateY(var(--ty)) translateZ(var(--z))}
+.ptile .pic{width:100%;height:100%;overflow:hidden;border-radius:3px;background:#111;box-shadow:0 18px 40px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.06);transition:box-shadow .3s}
+.ptile img{display:block;width:100%;height:100%;object-fit:cover;filter:saturate(.85) contrast(1.05)}
+.ptile .cap{position:absolute;top:100%;left:50%;width:max(100%,240px);max-width:min(340px,90vw);margin-top:14px;padding:10px 12px 11px;background:#000;border-radius:4px;
+  opacity:0;transform:translate(-50%,-6px);transition:opacity .25s,transform .3s;pointer-events:none}
+.ptile .cap.up{top:auto;bottom:100%;margin:0 0 14px;transform:translate(-50%,6px)}
+.ptile .cap .hl{-webkit-line-clamp:4}
+/* --hx/--hy are set on hover by fitLift() so the lifted picture and its caption stay on screen */
+.ptile:hover,.ptile:focus-visible{z-index:1000;transform:translate(-50%,-50%) translate(var(--hx,0px),var(--hy,0px)) rotate(0) rotateX(0) rotateY(0) translateZ(260px)}
+.ptile:hover .pic,.ptile:focus-visible .pic{box-shadow:0 40px 90px rgba(0,0,0,.9),0 0 0 1px var(--c)}
+.ptile:hover .cap,.ptile:focus-visible .cap{opacity:1;transform:translate(-50%,0)}
+#canvas:has(.ptile:hover) .ptile:not(:hover){filter:brightness(.35) grayscale(.4)}
+.cmsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:26px;color:var(--muted)}
+
 @media (max-width:560px){
   header{padding:10px 12px 6px}
   .brand{font-size:21px}
   .pill{padding:0 11px}
+  .row1{gap:6px}
+  .pill .lbl{display:none}   /* icons only, so the header fits a phone */
   .cluster-label h2{font-size:26px}
 }
 </style>
@@ -141,16 +205,31 @@ header{flex:none;padding:12px 16px 8px;border-bottom:1px solid var(--line);backg
 <body>
 <header>
   <div class="row1">
-    <div class="brand">Almanac <i>Wall</i></div>
+    <div class="brand"><i>Wal</i>manac</div>
     <div class="spacer"></div>
     <div class="yearctl">
       <button id="yPrev" aria-label="Previous year">−</button>
       <input id="year" type="number" inputmode="numeric" min="1" aria-label="Year">
       <button id="yNext" aria-label="Next year">+</button>
     </div>
-    <button id="play" class="pill" title="Advance one day every few seconds">▶ Follow</button>
+    <button id="play" class="pill" title="Advance one day every few seconds"><b>▶</b><span class="lbl">Follow</span></button>
+    <button id="gallery" class="pill" title="Pictures only, full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">Gallery</span></button>
+    <a id="boardLink" class="pill" href="board.html" title="Your pinned articles"><b>📌</b><span class="lbl">Board</span><span id="pinCount"></span></a>
   </div>
-  <div class="dateline"><span id="dateTitle"></span><span id="dateSub"></span></div>
+  <div class="dateline"><input id="dateTitle" type="text" spellcheck="false" autocomplete="off" enterkeyhint="go" aria-label="Date — click to type a new one" title="Click to type a date"><span id="dateSub"></span>
+    <div class="rangewrap">
+      <button id="rangeBtn" class="rangebtn" aria-haspopup="dialog" aria-expanded="false" title="How far from this date to look"></button>
+      <div id="rangePop" class="rangepop" role="dialog" aria-label="Date range" hidden>
+        <div class="rp-row"><span class="rp-k">From</span><button class="rp-step" data-k="before" data-d="-1" aria-label="Fewer days before">−</button><input id="rBefore" type="number" inputmode="numeric" min="0" max="60" aria-label="Days before"><button class="rp-step" data-k="before" data-d="1" aria-label="More days before">+</button><span class="rp-u">days before</span></div>
+        <div class="rp-row"><span class="rp-k">To</span><button class="rp-step" data-k="after" data-d="-1" aria-label="Fewer days after">−</button><input id="rAfter" type="number" inputmode="numeric" min="0" max="60" aria-label="Days after"><button class="rp-step" data-k="after" data-d="1" aria-label="More days after">+</button><span class="rp-u">days after</span></div>
+        <div class="rp-presets">
+          <button data-p="0,0">This day</button><button data-p="3,3">±3</button><button data-p="7,7">±1 week</button><button data-p="14,14">±2 weeks</button><button data-p="30,30">±1 month</button><button data-p="0,7">Week after</button><button data-p="7,0">Week before</button>
+        </div>
+        <label class="rp-check"><input type="checkbox" id="rAuto"> Auto: widen on quiet dates (±7, then 15, then 30)</label>
+        <label class="rp-check"><input type="checkbox" id="rYear"> Include highlights from the whole year</label>
+      </div>
+    </div>
+  </div>
   <div class="cal">
     <button class="mnav" id="mPrev" aria-label="Previous month">‹</button>
     <div id="monthName"></div>
@@ -299,9 +378,9 @@ function pageInfo(p){
   };
 }
 
-async function nearDate(y, m, d, span){
+async function nearDate(y, m, d, before, after){
   const base = utc(y, m, d).getTime();
-  const offsets = []; for(let k=-span; k<=span; k++) offsets.push(k);
+  const offsets = []; for(let k=-before; k<=after; k++) offsets.push(k);
   const out = [];
   const res = await pool(offsets, 6, async (k) => {
     const dt = new Date(base + k*864e5);
@@ -388,7 +467,16 @@ async function commonsPics(y, m, d){
 }
 
 /* ================= state ================= */
-const state = { y:1987, m:NOW.getMonth()+1, d:NOW.getDate(), off:new Set(), items:[], span:7, featured:null };
+const state = { y:1987, m:NOW.getMonth()+1, d:NOW.getDate(), off:new Set(), items:[], span:{before:7, after:7}, featured:null, gallery:false,
+  range: {auto:true, before:7, after:7, year:true} };
+const RANGE_KEY = 'walmanac.range', RANGE_MAX = 60;
+try{
+  const r = JSON.parse(localStorage.getItem(RANGE_KEY));
+  if(r && typeof r === 'object') state.range = {
+    auto: r.auto !== false, year: r.year !== false,
+    before: Math.max(0, Math.min(RANGE_MAX, r.before|0)), after: Math.max(0, Math.min(RANGE_MAX, r.after|0))
+  };
+}catch(e){}
 (function readHash(){
   const m = location.hash.match(/^#(\d{1,4})-(\d{2})-(\d{2})$/);
   if(m){ const y=+m[1], mo=+m[2], d=+m[3]; if(y>=1 && y<=MAXY && mo>=1 && mo<=12 && d>=1 && d<=daysIn(y,mo)){ state.y=y; state.m=mo; state.d=d; } }
@@ -420,9 +508,10 @@ function dayOfYear(y,m,d){ return Math.round((utc(y,m,d) - utc(y,1,1))/864e5) + 
 function renderHeader(){
   const {y,m,d} = state;
   if(document.activeElement !== yearIn) yearIn.value = y;
-  $('#dateTitle').textContent = `${MONTHS[m-1]} ${d}, ${y}`;
+  if(document.activeElement !== dateIn){ dateIn.value = `${MONTHS[m-1]} ${d}, ${y}`; dateIn.classList.remove('bad'); fitDate(); }
   const wd = utc(y,m,d).toLocaleDateString('en-US',{weekday:'long', timeZone:'UTC'});
   $('#dateSub').textContent = `${wd} · day ${dayOfYear(y,m,d)}`;
+  $('#dateSub').classList.remove('hint');
   $('#monthName').textContent = MON3[m-1];
   const box = $('#days'); box.innerHTML = '';
   const n = daysIn(y,m);
@@ -438,7 +527,7 @@ function renderHeader(){
     box.appendChild(b);
     if(i===d) selEl = b;
   }
-  if(selEl) requestAnimationFrame(() => { box.scrollLeft = selEl.offsetLeft - box.clientWidth/2 + selEl.offsetWidth/2; });
+  if(selEl) requestAnimationFrame(() => { box.scrollLeft = selEl.offsetLeft - box.offsetLeft - box.clientWidth/2 + selEl.offsetWidth/2; });
 }
 
 $('#yPrev').onclick = () => setDate(state.y-1, state.m, state.d);
@@ -453,16 +542,123 @@ yearIn.addEventListener('input', () => {
 yearIn.addEventListener('keydown', e => { if(e.key==='Enter'){ clearTimeout(yTimer); const v=parseInt(yearIn.value,10); if(v>=1&&v<=MAXY) setDate(v,state.m,state.d); yearIn.blur(); }});
 yearIn.addEventListener('blur', () => { yearIn.value = state.y; });
 
+/* the big date is a text field: click it, type a date, Enter to go, Esc to cancel */
+const dateIn = $('#dateTitle');
+const measureCtx = document.createElement('canvas').getContext('2d');
+function fitDate(){
+  const cs = getComputedStyle(dateIn);
+  measureCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  dateIn.style.width = Math.ceil(measureCtx.measureText(dateIn.value || ' ').width) + 8 + 'px';
+}
+function parseUserDate(s){
+  s = s.trim().replace(/(\d)(st|nd|rd|th)\b/gi, '$1').replace(/,/g, ' ').replace(/\s+/g, ' ');
+  const mon = (w) => w.length < 3 ? 0 : MONTHS.findIndex(x => x.toLowerCase().startsWith(w.toLowerCase())) + 1;
+  let m, y, mo, d;
+  if((m = s.match(/^(\d{1,4})-(\d{1,2})-(\d{1,2})$/))) [y, mo, d] = [+m[1], +m[2], +m[3]];
+  else if((m = s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{1,4})$/))) [mo, d, y] = [+m[1], +m[2], +m[3]];
+  else if((m = s.match(/^([a-z]+)\.? (\d{1,2}) (\d{1,4})$/i))) [mo, d, y] = [mon(m[1]), +m[2], +m[3]];
+  else if((m = s.match(/^(\d{1,2}) ([a-z]+)\.? (\d{1,4})$/i))) [d, mo, y] = [+m[1], mon(m[2]), +m[3]];
+  else if((m = s.match(/^([a-z]+)\.? (\d{1,2})$/i))) [mo, d, y] = [mon(m[1]), +m[2], state.y];
+  else if((m = s.match(/^(\d{1,4})$/))) [mo, d, y] = [state.m, Math.min(state.d, daysIn(+m[1] || 1, state.m)), +m[1]];
+  else return null;
+  if(!(y >= 1 && y <= MAXY && mo >= 1 && mo <= 12 && d >= 1 && d <= daysIn(y, mo))) return null;
+  return {y, m:mo, d};
+}
+let justFocused = false;
+dateIn.addEventListener('focus', () => {
+  dateIn.select(); justFocused = true;
+  $('#dateSub').textContent = 'Type a date, e.g. July 20, 1969 · Enter to go · Esc to cancel';
+  $('#dateSub').classList.add('hint');
+});
+// keep the select-all from focus; the click's mouseup would otherwise drop it
+dateIn.addEventListener('mouseup', e => { if(justFocused){ e.preventDefault(); justFocused = false; } });
+dateIn.addEventListener('input', () => { dateIn.classList.remove('bad'); fitDate(); });
+dateIn.addEventListener('keydown', e => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    if(parseUserDate(dateIn.value)) dateIn.blur();
+    else { dateIn.classList.add('bad'); dateIn.select(); }
+  } else if(e.key === 'Escape'){
+    e.stopPropagation();
+    dateIn.value = ''; dateIn.blur();
+  }
+});
+dateIn.addEventListener('blur', () => {
+  justFocused = false;
+  const p = parseUserDate(dateIn.value);
+  if(p && (p.y !== state.y || p.m !== state.m || p.d !== state.d)){ stopPlay(); setDate(p.y, p.m, p.d); }
+  else renderHeader();
+});
+if(document.fonts) document.fonts.ready.then(fitDate);
+
+/* range: how many days before and after the chosen date to pull events and photos from */
+const rangePop = $('#rangePop'), rangeBtn = $('#rangeBtn');
+function rangeLabel(){
+  const r = state.range;
+  if(r.auto) return 'Range: auto';
+  const days = (n) => `${n} day${n === 1 ? '' : 's'}`;
+  if(!r.before && !r.after) return 'This day only';
+  if(r.before === r.after) return `±${days(r.before)}`;
+  if(!r.before) return `${days(r.after)} after`;
+  if(!r.after) return `${days(r.before)} before`;
+  return `${r.before} before, ${r.after} after`;
+}
+function renderRange(){
+  const r = state.range;
+  rangeBtn.textContent = rangeLabel() + ' ▾';
+  for(const [id, k] of [['#rBefore','before'], ['#rAfter','after']]) if(document.activeElement !== $(id)) $(id).value = r[k];
+  $('#rAuto').checked = r.auto; $('#rYear').checked = r.year;
+  rangePop.classList.toggle('auto', r.auto);
+  rangePop.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('on', !r.auto && b.dataset.p === `${r.before},${r.after}`));
+}
+let rangeT;
+function setRange(patch){
+  const r = Object.assign(state.range, patch);
+  r.before = Math.max(0, Math.min(RANGE_MAX, r.before|0)); r.after = Math.max(0, Math.min(RANGE_MAX, r.after|0));
+  try{ localStorage.setItem(RANGE_KEY, JSON.stringify(r)); }catch(e){}
+  renderRange();
+  clearTimeout(rangeT); rangeT = setTimeout(load, 450);   // let quick +/- taps settle before fetching
+}
+function closeRange(){ rangePop.hidden = true; rangeBtn.setAttribute('aria-expanded', 'false'); }
+rangeBtn.onclick = () => { const open = rangePop.hidden; rangePop.hidden = !open; rangeBtn.setAttribute('aria-expanded', String(open)); };
+rangePop.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.k) setRange({[b.dataset.k]: state.range[b.dataset.k] + +b.dataset.d, auto:false});
+  else if(b.dataset.p){ const [before, after] = b.dataset.p.split(',').map(Number); setRange({before, after, auto:false}); }
+});
+$('#rBefore').addEventListener('input', e => setRange({before: parseInt(e.target.value, 10) || 0, auto:false}));
+$('#rAfter').addEventListener('input', e => setRange({after: parseInt(e.target.value, 10) || 0, auto:false}));
+$('#rBefore').addEventListener('blur', renderRange);
+$('#rAfter').addEventListener('blur', renderRange);
+$('#rAuto').addEventListener('change', e => setRange({auto: e.target.checked}));
+$('#rYear').addEventListener('change', e => setRange({year: e.target.checked}));
+document.addEventListener('pointerdown', e => { if(!rangePop.hidden && !e.target.closest('.rangewrap')) closeRange(); });
+
 let playTimer = null;
-function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; $('#play').classList.remove('on'); $('#play').textContent='▶ Follow'; } }
+function setPlayLabel(on){ $('#play').classList.toggle('on', on); $('#play b').textContent = on ? '❚❚' : '▶'; $('#play .lbl').textContent = on ? 'Following' : 'Follow'; }
+function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; setPlayLabel(false); } }
 $('#play').onclick = () => {
   if(playTimer) return stopPlay();
-  $('#play').classList.add('on'); $('#play').textContent = '❚❚ Following';
+  setPlayLabel(true);
   playTimer = setInterval(() => stepDay(1), 7000);
 };
 
+function setGallery(on){
+  if(state.gallery === on) return;
+  state.gallery = on;
+  document.body.classList.toggle('gallery', on);
+  $('#gallery .lbl').textContent = on ? 'Exit' : 'Gallery';
+  closeDrawer();
+  if(on) document.documentElement.requestFullscreen?.().catch(() => {});
+  else if(document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  layout(true);
+}
+$('#gallery').onclick = () => setGallery(!state.gallery);
+// leaving browser full screen (Esc there never reaches the page) also leaves gallery mode
+document.addEventListener('fullscreenchange', () => { if(!document.fullscreenElement) setGallery(false); });
+
 document.addEventListener('keydown', e => {
-  if(e.key === 'Escape') return closeDrawer();
+  if(e.key === 'Escape') return !rangePop.hidden ? closeRange() : $('#drawer').classList.contains('open') ? closeDrawer() : setGallery(false);
   if(e.target.tagName === 'INPUT' || $('#drawer').classList.contains('open')) return;
   if(e.key === 'ArrowLeft'){ stopPlay(); stepDay(-1); }
   if(e.key === 'ArrowRight'){ stopPlay(); stepDay(1); }
@@ -493,27 +689,31 @@ async function load(){
   $('#canvas').classList.add('dim');
   setStatus(`Gathering ${esc(MONTHS[m-1])} ${d}, ${y}…`, true);
 
+  const rg = state.range;
   const pNear = (async () => {
-    let span = 7, r = await nearDate(y, m, d, span);
-    if(r.length < 8){ span = 15; r = await nearDate(y, m, d, span); }
-    if(r.length < 4){ span = 30; r = await nearDate(y, m, d, span); }
-    return {items:r, span};
+    if(!rg.auto) return {items: await nearDate(y, m, d, rg.before, rg.after), before: rg.before, after: rg.after};
+    // auto: start at a week either side and widen on quiet dates
+    let span = 7, r = await nearDate(y, m, d, span, span);
+    if(r.length < 8){ span = 15; r = await nearDate(y, m, d, span, span); }
+    if(r.length < 4){ span = 30; r = await nearDate(y, m, d, span, span); }
+    return {items:r, before:span, after:span};
   })();
-  const pYear = Promise.allSettled(TOPICS.filter(t => t.search).map(t => yearTopic(y, t)));
+  const pYear = rg.year ? Promise.allSettled(TOPICS.filter(t => t.search).map(t => yearTopic(y, t))) : Promise.resolve([]);
   const pPics = commonsPics(y, m, d).catch(() => []);
 
   const [rn, ry, rp] = await Promise.allSettled([pNear, pYear, pPics]);
   if(my !== token) return;
 
   const near = rn.status === 'fulfilled' ? rn.value.items : [];
-  state.span = rn.status === 'fulfilled' ? rn.value.span : 7;
+  state.span = rn.status === 'fulfilled' ? {before: rn.value.before, after: rn.value.after} : {before: 7, after: 7};
+  const perTopic = Math.max(10, Math.min(20, Math.round((state.span.before + state.span.after) / 2) + 4));
   const seen = new Set();
   near.forEach(e => e.pages[0] && seen.add(e.pages[0].title));
 
   // per-topic: near-date events first (closest), then year highlights
   const byTopic = {};
   near.sort((a,b) => Math.abs(a.offset) - Math.abs(b.offset) || a.offset - b.offset);
-  for(const e of near){ (byTopic[e.topic] ||= []); if(byTopic[e.topic].length < 10) byTopic[e.topic].push(e); }
+  for(const e of near){ (byTopic[e.topic] ||= []); if(byTopic[e.topic].length < perTopic) byTopic[e.topic].push(e); }
   if(ry.status === 'fulfilled'){
     ry.value.forEach(r => {
       if(r.status !== 'fulfilled') return;
@@ -524,11 +724,18 @@ async function load(){
       }
     });
   }
-  const pics = rp.status === 'fulfilled' ? rp.value : [];
+  // dated photos must fall inside the range; undated ones stay as general pictures of the month
+  const target = utc(y, m, d).getTime();
+  const pics = (rp.status === 'fulfilled' ? rp.value : []).filter(p => {
+    if(!p.date) return true;
+    const k = Math.round((p.date.getTime() - target) / 864e5);
+    return k >= -state.span.before && k <= state.span.after;
+  });
   if(pics.length) byTopic.pictures = pics;
 
   state.items = TOPICS.flatMap(t => byTopic[t.id] || []);
-  const feat = near.filter(e => e.img).sort((a,b) => Math.abs(a.offset) - Math.abs(b.offset))[0]
+  // pick from what's actually on the wall (topics are capped at 10 near-date events)
+  const feat = state.items.filter(i => i.kind === 'event' && i.img).sort((a,b) => Math.abs(a.offset) - Math.abs(b.offset) || a.offset - b.offset)[0]
             || state.items.find(i => i.img) || null;
   state.featured = feat ? feat.id : null;
 
@@ -549,14 +756,17 @@ async function load(){
     setStatus(rn.status === 'rejected' ? 'Offline or blocked' : 'No panels found');
   } else {
     empty.style.display = 'none';
-    setStatus(`${state.items.length} panels · events within ±${state.span} days + highlights of ${y} · drag to pan, tap for sources`);
+    const day = utc(y, m, d).getTime(), s = state.span;
+    const span = s.before || s.after ? `${fmtShort(new Date(day - s.before*864e5))} – ${fmtShort(new Date(day + s.after*864e5))}` : 'this day only';
+    setStatus(`${state.items.length} panels · events ${span}${rg.year ? ` + highlights of ${y}` : ''} · drag to pan, tap for sources`);
   }
 }
 
 /* ================= wall layout ================= */
 function layout(animate){
+  if(state.gallery) return layoutGallery(animate);
   const board = $('#board'), canvas = $('#canvas');
-  canvas.querySelectorAll('.tile,.cluster-label').forEach(n => n.remove());
+  canvas.querySelectorAll('.tile,.cluster-label,.ptile,.cmsg').forEach(n => n.remove());
   const vw = board.clientWidth || window.innerWidth;
   const mobile = vw < 560;
   const pad = mobile ? 14 : 40, gap = mobile ? 12 : 18, cgap = mobile ? 40 : 70;
@@ -616,6 +826,98 @@ function layout(animate){
   requestAnimationFrame(() => requestAnimationFrame(() => canvas.querySelectorAll('.tile').forEach(t => t.classList.add('in'))));
 }
 
+function tileText(it){
+  if(it.kind === 'event') return {
+    label: it.offset === 0 ? `${fmtShort(it.date)} · this day` : `${fmtShort(it.date)} · ${Math.abs(it.offset)}d ${it.offset < 0 ? 'before' : 'after'}`,
+    headline: it.text };
+  if(it.kind === 'year') return {label: `${state.y} · from the year`, headline: it.title};
+  return {label: it.date ? `${fmtShort(it.date)} · photo` : `${state.y} · photo`, headline: it.title};
+}
+
+/* gallery: every picture on one screen, each topic scattered around its own spot so neighbouring topics overlap */
+function layoutGallery(animate){
+  const board = $('#board'), canvas = $('#canvas');
+  canvas.querySelectorAll('.tile,.cluster-label,.ptile,.cmsg').forEach(n => n.remove());
+  const W = board.clientWidth || window.innerWidth, H = board.clientHeight || window.innerHeight;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  board.scrollTo({top:0, left:0});
+
+  const groups = TOPICS
+    .map(t => ({t, items: state.items.filter(i => i.topic === t.id && i.img)}))
+    .filter(g => g.items.length && !state.off.has(g.t.id));
+  const n = groups.reduce((s, g) => s + g.items.length, 0);
+  if(!n){
+    if(state.items.length){ const msg = document.createElement('div'); msg.className = 'cmsg'; msg.textContent = 'No pictures near this date'; canvas.appendChild(msg); }
+    return;
+  }
+  // a grid of cells over the whole screen, filled topic by topic along a snake path,
+  // so each topic gets a patch sized to its picture count; tiles are bigger than cells and jittered so patches overlap
+  const cols = Math.max(1, Math.round(Math.sqrt(n * W / H))), rows = Math.ceil(n / cols), cells = cols * rows;
+  const cw = W / cols, ch = H / rows;
+  const ordered = groups.flatMap(g => g.items);
+  const R = rng(hash(`${state.y}-${state.m}-${state.d}-gallery`));
+  const placed = ordered.map((it, i) => {
+    const cell = Math.floor(i * cells / n), row = Math.floor(cell / cols);
+    const col = row % 2 ? cols - 1 - cell % cols : cell % cols;
+    const featured = it.id === state.featured;
+    const w = Math.round(Math.min(W * .8, Math.min(cw * 1.25, ch * 1.5) * (featured ? 1.5 : .85 + R() * .3)));
+    const h = Math.round(w * (.7 + R() * .5));
+    const x = Math.max(w/2 + 8, Math.min(W - w/2 - 8, (col + .5 + (R() - .5) * .6) * cw));
+    const y = Math.max(h/2 + 8, Math.min(H - h/2 - 8, (row + .5 + (R() - .5) * .6) * ch));
+    return {it, x, y, w, h, featured, R, k: R()};
+  });
+  placed.sort((a, b) => (a.featured - b.featured) || (a.k - b.k));   // interleave topics, featured on top
+
+  const frag = document.createDocumentFragment();
+  placed.forEach((p, order) => frag.appendChild(photoEl(p, order, animate)));
+  canvas.appendChild(frag);
+  requestAnimationFrame(() => requestAnimationFrame(() => canvas.querySelectorAll('.ptile').forEach(t => t.classList.add('in'))));
+}
+
+/* Lifting a picture toward the viewer (translateZ under the canvas perspective) scales it up AND pushes it
+   away from the screen centre, so edge pictures would fly off screen. Work out where it would land and
+   shift it back inside, putting the caption below when it fits there, otherwise above. */
+const LIFT_P = 1400, LIFT_Z = 260;   // mirror #canvas perspective and the hover translateZ in the CSS
+function fitLift(el){
+  const cv = el.parentNode; if(!cv) return;
+  const W = cv.clientWidth, H = cv.clientHeight, s = LIFT_P / (LIFT_P - LIFT_Z), m = 12;
+  const cap = el.querySelector('.cap');
+  const w = el.offsetWidth, h = el.offsetHeight, capW = Math.max(w, cap.offsetWidth), capH = cap.offsetHeight + 14;
+  const clamp = (v, [lo, hi]) => lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v));
+  // where the centre lands on screen when lifted, with no correction
+  const px0 = W/2 + (parseFloat(el.style.left) - W/2) * s, py0 = H/2 + (parseFloat(el.style.top) - H/2) * s;
+  const px = clamp(px0, [m + capW*s/2, W - m - capW*s/2]);
+  const below = [m + h*s/2, H - m - (h/2 + capH)*s], above = [m + (h/2 + capH)*s, H - m - h*s/2];
+  const up = Math.abs(clamp(py0, above) - py0) < Math.abs(clamp(py0, below) - py0);
+  const py = clamp(py0, up ? above : below);
+  cap.classList.toggle('up', up);
+  el.style.setProperty('--hx', ((px - px0) / s).toFixed(1) + 'px');
+  el.style.setProperty('--hy', ((py - py0) / s).toFixed(1) + 'px');
+}
+
+function photoEl({it, x, y, w, h, R}, order, animate){
+  const t = TOPIC[it.topic];
+  const {label, headline} = tileText(it);
+  const el = document.createElement('div');
+  el.className = 'ptile'; el.tabIndex = 0; el.setAttribute('role','button'); el.setAttribute('aria-label', headline);
+  el.style.cssText = `left:${Math.round(x)}px;top:${Math.round(y)}px;width:${w}px;height:${h}px;--c:${t.color};` +
+    `--r:${((R()-.5) * 12).toFixed(2)}deg;--tx:${((R()-.5) * 16).toFixed(1)}deg;--ty:${((R()-.5) * 16).toFixed(1)}deg;--z:${Math.round(-R() * 120)}px;` +
+    `transition-delay:${animate ? Math.min(order * 30, 900) : 0}ms`;
+  el.innerHTML =
+    `<div class="pic"><img alt="" draggable="false" decoding="async" referrerpolicy="no-referrer" src="${esc(w > 260 ? it.img.large : it.img.thumb)}"></div>` +
+    `<div class="cap"><div class="meta"><i></i>${esc(label)}</div><div class="hl">${esc(headline)}</div></div>`;
+  const img = el.querySelector('img');
+  // once the picture arrives, give the frame its real proportions
+  img.onload = () => { const r = img.naturalHeight / img.naturalWidth; if(r) el.style.height = Math.round(w * Math.max(.55, Math.min(1.5, r))) + 'px'; };
+  img.onerror = () => el.remove();
+  if(animate) el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, {once:true});
+  el.addEventListener('mouseenter', () => fitLift(el));
+  el.addEventListener('focus', () => fitLift(el));
+  el.addEventListener('click', () => { if(!dragMoved) openItem(it); });
+  el.addEventListener('keydown', e => { if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openItem(it); } });
+  return el;
+}
+
 function tileEl(it, x, y, w, h, rot, featured, order, animate){
   const t = TOPIC[it.topic];
   const el = document.createElement('div');
@@ -623,24 +925,19 @@ function tileEl(it, x, y, w, h, rot, featured, order, animate){
   el.tabIndex = 0; el.setAttribute('role','button');
   el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;--r:${rot}deg;--c:${t.color};transition-delay:${animate ? Math.min(order*35, 900) : 0}ms`;
 
-  let label, headline, sub = '';
-  if(it.kind === 'event'){
-    label = it.offset === 0 ? `${fmtShort(it.date)} · this day` : `${fmtShort(it.date)} · ${Math.abs(it.offset)}d ${it.offset < 0 ? 'before' : 'after'}`;
-    headline = it.text;
-  } else if(it.kind === 'year'){
-    label = `${state.y} · from the year`; headline = it.title; if(!it.img || h > 230) sub = it.text;
-  } else {
-    label = it.date ? `${fmtShort(it.date)} · photo` : `${state.y} · photo`; headline = it.title;
-  }
+  const {label, headline} = tileText(it);
+  const sub = it.kind === 'year' && (!it.img || h > 230) ? it.text : '';
   const src = it.img ? (featured || w > 300 ? it.img.large : it.img.thumb) : '';
   el.innerHTML =
-    (src ? `<img alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(src)}">` : '') +
+    (src ? `<img alt="" draggable="false" loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(src)}">` : '') +
     `<div class="ico">${svg(t.icon)}</div><div class="shade"></div>` +
     (R_TAPE(it.id) ? '<div class="tape"></div>' : '') +
     (featured ? `<div class="badge">Nearest to ${esc(fmtShort(utc(state.y,state.m,state.d)))}</div>` : '') +
     `<div class="body"><div class="meta"><i></i>${esc(label)}</div><div class="hl">${esc(headline)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`;
   const img = el.querySelector('img');
   if(img) img.onerror = () => { img.remove(); el.classList.add('noimg'); };
+  // the stagger delay is only for the entry animation; drop it so hover responds immediately
+  if(animate) el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, {once:true});
   const open = () => { if(dragMoved) return; openItem(it); };
   el.addEventListener('click', open);
   el.addEventListener('keydown', e => { if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openItem(it); } });
@@ -648,8 +945,12 @@ function tileEl(it, x, y, w, h, rot, featured, order, animate){
 }
 function R_TAPE(id){ return hash(id) % 4 === 0; }
 
-let rT; let lastW = 0;
-window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { const w = $('#board').clientWidth; if(w !== lastW){ lastW = w; layout(false); } }, 200); });
+let rT; let lastW = 0, lastH = 0;
+window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => {
+  const w = $('#board').clientWidth, h = $('#board').clientHeight;
+  // the gallery fills exactly one screen, so it also cares about height
+  if(w !== lastW || (state.gallery && h !== lastH)){ lastW = w; lastH = h; layout(false); }
+}, 200); });
 
 /* mouse drag-to-pan (touch uses native scrolling) */
 let dragMoved = false;
@@ -661,11 +962,19 @@ let dragMoved = false;
   });
   window.addEventListener('pointermove', e => {
     if(!down) return;
+    if(!(e.buttons & 1)) return end();   // button released somewhere we didn't hear about
     const dx = e.clientX - sx, dy = e.clientY - sy;
-    if(!dragMoved && Math.hypot(dx,dy) > 5){ dragMoved = true; board.classList.add('dragging'); }
+    if(!dragMoved && Math.hypot(dx,dy) > 5){
+      dragMoved = true; board.classList.add('dragging');
+      // capture only once it's a real drag, so plain clicks still reach the tiles
+      try{ board.setPointerCapture(e.pointerId); }catch(err){}
+    }
     if(dragMoved){ board.scrollLeft = sl - dx; board.scrollTop = st - dy; }
   });
-  window.addEventListener('pointerup', () => { if(!down) return; down = false; board.classList.remove('dragging'); setTimeout(() => dragMoved = false, 0); });
+  function end(){ if(!down) return; down = false; board.classList.remove('dragging'); setTimeout(() => dragMoved = false, 0); }
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+  board.addEventListener('dragstart', e => e.preventDefault());
 })();
 
 /* ================= detail drawer ================= */
@@ -675,6 +984,30 @@ function srcCard(p, color){
     <div class="t"><b>${esc(p.title)}</b>${p.desc ? `<em>${esc(p.desc)}</em>` : ''}${p.extract ? `<p>${esc(p.extract)}</p>` : ''}</div>
     <span class="arr">↗</span></a>`;
 }
+/* pins are shared with board.html through localStorage (same site, same browser) */
+const PIN_KEY = 'walmanac.pins';
+function readPins(){ try{ const p = JSON.parse(localStorage.getItem(PIN_KEY)); return Array.isArray(p) ? p : []; }catch(e){ return []; } }
+function writePins(p){ try{ localStorage.setItem(PIN_KEY, JSON.stringify(p)); }catch(e){} updatePinCount(); }
+function isPinned(id){ return readPins().some(p => p.id === id); }
+function togglePin(it){
+  const pins = readPins(), i = pins.findIndex(p => p.id === it.id);
+  if(i >= 0) pins.splice(i, 1);
+  else {
+    const t = TOPIC[it.topic];
+    pins.push({
+      id: it.id, kind: it.kind, topic: t.name, color: t.color,
+      label: it.date ? fmt(it.date) : String(state.y), title: tileText(it).headline,
+      img: it.img ? it.img.thumb : '',
+      url: it.kind === 'pic' ? it.fileUrl : (it.pages[0]?.url || it.dayPage),
+      wall: `${state.y}-${pad2(state.m)}-${pad2(state.d)}`
+    });
+  }
+  writePins(pins);
+  return i < 0;
+}
+function updatePinCount(){ const n = readPins().length; $('#pinCount').textContent = n || ''; }
+window.addEventListener('storage', e => { if(e.key === PIN_KEY) updatePinCount(); });
+
 function openItem(it){
   const t = TOPIC[it.topic];
   let html = '';
@@ -711,7 +1044,12 @@ function openItem(it){
     html += `<h4>Source</h4>` + srcCard({title: it.fileName.replace(/^File:/,''), desc:'File page on Wikimedia Commons', url: it.fileUrl, thumb: it.img.thumb}, t.color);
   }
   html += `<p class="note">Text and images are loaded live from Wikipedia and Wikimedia Commons, where they're shared under free licenses. Open a source to read the full story or check image credits.</p>`;
+  html = html.replace('</h2>', '</h2><div class="pinrow"><button class="pinbtn" id="pinBtn"></button><a class="pinlink" href="board.html">Open board →</a></div>');
   $('#dbody').innerHTML = html;
+  const pinBtn = $('#pinBtn');
+  const showPin = (on) => { pinBtn.classList.toggle('on', on); pinBtn.textContent = on ? '✓ Pinned to board' : '📌 Pin to board'; };
+  showPin(isPinned(it.id));
+  pinBtn.onclick = () => showPin(togglePin(it));
   $('#drawer').scrollTop = 0;
   $('#drawer').classList.add('open'); $('#drawer').setAttribute('aria-hidden','false');
   $('#scrim').classList.add('on');
@@ -727,6 +1065,8 @@ $('#scrim').onclick = closeDrawer;
 /* ================= go ================= */
 renderHeader();
 renderChips();
+renderRange();
+updatePinCount();
 lastW = $('#board').clientWidth;
 setDate(state.y, state.m, state.d, {force:true});
 })();

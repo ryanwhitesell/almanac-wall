@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Walmanac Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0d; --panel:#14161a; --panel2:#1b1e23; --line:#272b32; --text:#ece8e1; --muted:#a19d95; --dim:#6b6862; --accent:#e8b04a;
+  --paper:#f4efe4; --ink:#1d1b18;
+  --serif:'Instrument Serif',Georgia,serif; --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --safe-b:max(12px,env(safe-area-inset-bottom));
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden;overscroll-behavior:none}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+
+/* ---------- header ---------- */
+header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:10px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));
+  background:linear-gradient(rgba(10,11,13,.94),rgba(10,11,13,.8));backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font-family:var(--serif);font-size:23px;white-space:nowrap;text-decoration:none}
+.brand i{color:var(--accent)}
+.tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.spacer{flex:1}
+#count{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:999px;height:34px;padding:0 13px;font-size:13px;color:var(--muted);white-space:nowrap;text-decoration:none}
+.pill:hover{color:var(--text)}
+
+/* ---------- board ---------- */
+#view{position:fixed;inset:0;overflow:hidden;touch-action:none;cursor:grab;background-color:#b4844f}
+#view.panning{cursor:grabbing}
+#view.connecting{cursor:crosshair}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+/* sky effects sit on the background; the two black veils dim the background alone, then the whole board */
+#fx,#bgdim,#dim{position:absolute;inset:0;pointer-events:none}
+#fx{width:100%;height:100%}
+#bgdim,#dim{background:#000;opacity:0}
+#dim{z-index:3}
+/* layers: cards, then lines and pushpins over them, then circles on top */
+#cards,#notes{position:absolute;left:0;top:0}
+#cards{z-index:0}
+#links{position:absolute;overflow:visible;pointer-events:none;z-index:1}
+#notes{z-index:2}
+#links .hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
+#links .link.sel .hit{stroke:rgba(232,176,74,.4)}
+
+.card{position:absolute;background:var(--paper);color:var(--ink);padding:8px 8px 11px;border-radius:2px;cursor:grab;
+  box-shadow:0 10px 24px rgba(0,0,0,.42),0 1px 0 rgba(0,0,0,.2);transform:rotate(var(--r));user-select:none;-webkit-user-select:none}
+.card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#d9d3c7;pointer-events:none}
+.card .meta{display:flex;align-items:center;gap:6px;margin:8px 0 5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:#6b655c}
+.card .meta i{width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
+.card .t{font-family:var(--serif);font-size:17px;line-height:1.16;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+
+.note{position:absolute;width:var(--d);height:var(--d);margin:calc(var(--d) / -2) 0 0 calc(var(--d) / -2);border-radius:50%;background:var(--nc);color:var(--nt);
+  display:flex;align-items:center;justify-content:center;text-align:center;cursor:grab;user-select:none;-webkit-user-select:none;
+  box-shadow:inset 0 -4px 10px rgba(0,0,0,.18),inset 0 3px 6px rgba(255,255,255,.25),0 6px 14px rgba(0,0,0,.4)}
+.note .txt{width:78%;max-height:78%;overflow:hidden;font-family:var(--sans);font-weight:600;font-size:calc(var(--d) * .15);line-height:1.1;word-break:break-word;outline:none}
+.note .txt:empty::before{content:attr(data-ph);opacity:.45;font-weight:500}
+.note .txt[contenteditable="true"]{cursor:text;user-select:text;-webkit-user-select:text}
+
+.card.drag,.note.drag{cursor:grabbing}
+.card.sel,.note.sel{outline:2px solid var(--accent);outline-offset:4px}
+.card.src,.note.src{outline:2px dashed var(--accent);outline-offset:4px}
+
+/* ---------- selection bar ---------- */
+#selbar{position:fixed;z-index:25;display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 16px);padding:4px;border-radius:12px;background:rgba(16,18,21,.96);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+#selbar[hidden]{display:none}
+.sb{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border:0;border-radius:8px;background:none;font-size:12.5px;color:var(--muted);text-decoration:none;white-space:nowrap}
+.sb:hover{background:var(--panel2);color:var(--text)}
+.sb.on{color:var(--accent)}
+.sb.danger{color:#f3a097}
+.sbsep{width:1px;height:20px;background:var(--line);margin:0 3px}
+.dot{width:20px;height:20px;padding:0;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.dot.on{border-color:var(--accent)}
+
+/* ---------- toolbar + sheets ---------- */
+#tools{position:fixed;left:50%;bottom:var(--safe-b);transform:translateX(-50%);z-index:30;display:flex;gap:2px;padding:5px;border-radius:16px;
+  background:rgba(16,18,21,.94);border:1px solid var(--line);backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.tool{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:62px;padding:7px 8px 6px;border:0;border-radius:11px;background:none;color:var(--muted);font-size:11px}
+.tool svg{width:20px;height:20px}
+.tool:hover{color:var(--text);background:var(--panel2)}
+.tool.on{background:var(--accent);color:#1a1408}
+.sheet{position:fixed;left:50%;bottom:calc(var(--safe-b) + 74px);transform:translateX(-50%);z-index:31;width:min(440px,calc(100vw - 20px));max-height:min(62vh,520px);overflow:auto;
+  background:#111317;border:1px solid var(--line);border-radius:16px;padding:14px 14px 4px;box-shadow:0 20px 50px rgba(0,0,0,.55)}
+.sheet[hidden]{display:none}
+.sheet h5{margin:0 0 8px;font-family:var(--mono);font-weight:500;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.opts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.opts.three{grid-template-columns:repeat(3,1fr)}
+.opt{display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 4px 7px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:11px;color:var(--muted);min-width:0}
+.opt[aria-pressed="true"]{border-color:var(--accent);color:var(--text);background:var(--panel2)}
+.opt .pv{display:block;width:100%;height:30px;border-radius:6px}
+.opt .pv svg{display:block;width:100%;height:100%}
+.opt .bgpv{display:block;width:100%;height:46px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.swatches{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+.swatches .dot{width:30px;height:30px}
+.slider{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:12.5px;color:var(--muted)}
+.slider input{flex:1;accent-color:var(--accent)}
+.slider output{width:38px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text)}
+.fxpv{display:block;width:100%;height:46px;border-radius:6px;background:#07080b}
+.fxpv.stars{background:radial-gradient(circle at 20% 30%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 45% 80%,#cfd8ff 0 .8px,transparent 1.3px),radial-gradient(circle at 85% 20%,#fff 0 .8px,transparent 1.3px),linear-gradient(160deg,transparent 40%,rgba(255,255,255,.7) 48%,transparent 49%),#07080b;background-size:22px 18px,26px 22px,19px 23px,31px 17px,100% 100%}
+.fxpv.galaxy{background:radial-gradient(ellipse 40% 22% at 55% 50%,rgba(255,226,180,.95),rgba(190,140,255,.45) 45%,rgba(80,120,255,.15) 75%,transparent 100%),#07080b}
+.wide{width:100%;height:38px;margin-bottom:12px;border-radius:10px;border:1px solid #6b2a26;background:#2a1513;color:#f3a097;font-size:13px}
+
+#hint,#toast{position:fixed;left:50%;transform:translateX(-50%);z-index:32;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 24px);padding:8px 14px;border-radius:999px;
+  background:rgba(16,18,21,.95);border:1px solid var(--line);font-size:12.5px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#hint{top:calc(max(10px,env(safe-area-inset-top)) + 58px);border-color:var(--accent)}
+#toast{bottom:calc(var(--safe-b) + 78px)}
+#hint[hidden],#toast[hidden]{display:none}
+#toast button{border:0;background:none;color:var(--accent);font-weight:600;padding:0}
+
+#empty{position:fixed;inset:0;z-index:5;display:none;align-items:center;justify-content:center;padding:24px;pointer-events:none}
+#empty div{pointer-events:auto;max-width:380px;text-align:center;padding:22px 24px;border-radius:16px;background:rgba(16,18,21,.92);border:1px solid var(--line);color:var(--muted);font-size:14px;line-height:1.5}
+#empty h3{margin:0 0 8px;font-family:var(--serif);font-weight:400;font-size:28px;color:var(--text)}
+#empty a{display:inline-block;margin-top:12px}
+
+@media (max-width:560px){
+  header{padding:8px 12px;padding-top:max(8px,env(safe-area-inset-top))}
+  .brand{font-size:21px}
+  .tag,#count{display:none}
+  .tool{min-width:54px;padding:7px 4px 6px;font-size:10.5px}
+}
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="index.html"><i>Wal</i>manac</a><span class="tag">Board</span>
+  <div class="spacer"></div>
+  <span id="count"></span>
+  <a class="pill" href="index.html">← Wall</a>
+</header>
+
+<main id="view">
+  <canvas id="fx"></canvas>
+  <div id="bgdim"></div>
+  <div id="world">
+    <div id="cards"></div>
+    <svg id="links" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="notes"></div>
+  </div>
+  <div id="dim"></div>
+</main>
+
+<div id="empty"><div><h3>Nothing pinned yet</h3>Open the wall, tap any panel, and choose <b>📌 Pin to board</b>. Pinned articles land here, ready to arrange and connect. You can also add circles right away.<br><a class="pill" href="index.html">← Go to the wall</a></div></div>
+<div id="hint" hidden></div>
+<div id="toast" hidden></div>
+<div id="selbar" hidden></div>
+<div id="sheet" class="sheet" hidden></div>
+
+<nav id="tools">
+  <button class="tool" id="tConnect" title="Connect two items with a line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7 7.5c4 1 6 4 10 9"/></svg>Connect</button>
+  <button class="tool" id="tCircle" title="Add a circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 9v6M9 12h6" stroke-linecap="round"/></svg>Circle</button>
+  <button class="tool" id="tLine" title="Line style"><svg id="linePv" viewBox="0 0 24 24"></svg>Line</button>
+  <button class="tool" id="tBg" title="Background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 15l5-4 4 3 3-2 5 4" stroke-linejoin="round"/></svg>Background</button>
+  <button class="tool" id="tFit" title="Fit everything on screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Fit</button>
+</nav>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= constants ================= */
+const KEY_PINS = 'walmanac.pins', KEY_BOARD = 'walmanac.board';
+const CW = 190;                         // card width in board units
+const SIZES = [{id:56, name:'S'}, {id:84, name:'M'}, {id:120, name:'L'}, {id:170, name:'XL'}];
+const NOTE_COLORS = ['#e2675a','#e8b04a','#f4efe4','#6fd3a8','#5cc8e8','#8fa8ff','#c9a7f0','#1d1b18'];
+const LINE_COLORS = ['#c0282d','#1d1b18','#f4efe4','#e8b04a','#3d7be0','#3aa36b','#c9a7f0'];
+const STYLES = [
+  {id:'string', name:'String'}, {id:'line', name:'Line'}, {id:'dashed', name:'Dashed'}, {id:'dotted', name:'Dotted'},
+  {id:'zigzag', name:'Zigzag'}, {id:'double', name:'Double'}, {id:'chain', name:'Chain'}, {id:'tape', name:'Tape'}
+];
+const ARROWS = [{id:'none', name:'None'}, {id:'end', name:'Arrow'}, {id:'both', name:'Both ends'}];
+const BGS = [
+  {id:'pegboard', name:'Pegboard', color:'#c99a62', size:26, image:'radial-gradient(circle at 50% 50%,#24170c 0 3.4px,rgba(36,23,12,.55) 3.9px,transparent 4.6px),radial-gradient(circle at 50% 60%,rgba(255,236,200,.35) 0 4.6px,transparent 5.2px),radial-gradient(circle at 30% 20%,rgba(120,70,20,.12) 0 1px,transparent 2px)'},
+  {id:'pegdark', name:'Black pegboard', color:'#26272a', size:26, image:'radial-gradient(circle at 50% 50%,#050506 0 3.4px,rgba(5,5,6,.6) 3.9px,transparent 4.6px),radial-gradient(circle at 50% 60%,rgba(255,255,255,.1) 0 4.6px,transparent 5.2px)'},
+  {id:'cork', name:'Cork', color:'#b4844f', size:16, image:'radial-gradient(circle at 20% 30%,rgba(60,30,5,.35) 0 1.2px,transparent 2px),radial-gradient(circle at 70% 65%,rgba(255,235,200,.22) 0 1px,transparent 1.8px),radial-gradient(circle at 45% 85%,rgba(90,50,15,.3) 0 1.6px,transparent 2.4px),radial-gradient(circle at 85% 15%,rgba(50,25,5,.25) 0 1px,transparent 1.8px)'},
+  {id:'felt', name:'Green felt', color:'#1f3b2d', size:6, image:'radial-gradient(circle at 30% 40%,rgba(255,255,255,.06) 0 .8px,transparent 1.4px),radial-gradient(circle at 75% 70%,rgba(0,0,0,.28) 0 .8px,transparent 1.4px)'},
+  {id:'chalk', name:'Chalkboard', color:'#28322e', size:22, image:'radial-gradient(circle at 25% 35%,rgba(255,255,255,.05) 0 1px,transparent 2.5px),radial-gradient(circle at 70% 75%,rgba(255,255,255,.035) 0 1.5px,transparent 3px)'},
+  {id:'wood', name:'Wood', color:'#6b4428', size:120, image:'repeating-linear-gradient(90deg,rgba(0,0,0,.09) 0 2px,transparent 2px 9px,rgba(255,255,255,.045) 9px 11px,transparent 11px 23px,rgba(0,0,0,.05) 23px 26px,transparent 26px 40px)'},
+  {id:'grid', name:'Graph paper', color:'#f3efe6', size:28, image:'linear-gradient(rgba(60,110,170,.2) 1px,transparent 1px),linear-gradient(90deg,rgba(60,110,170,.2) 1px,transparent 1px)'},
+  {id:'blueprint', name:'Blueprint', color:'#173a66', size:32, image:'linear-gradient(rgba(255,255,255,.13) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.13) 1px,transparent 1px)'},
+  {id:'paper', name:'Plain paper', color:'#ece6d8', size:10, image:'radial-gradient(circle at 50% 50%,rgba(0,0,0,.035) 0 .8px,transparent 1.5px)'},
+  {id:'night', name:'Night', color:'#0a0b0d', size:26, image:'radial-gradient(rgba(255,255,255,.08) 1px,transparent 1px)'}
+];
+
+/* ================= utilities ================= */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl = (u) => /^https?:\/\//i.test(String(u || '')) ? String(u) : '#';
+const safeColor = (c, fb) => c === 'currentColor' || /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : fb;
+const f1 = (v) => Math.round(v * 10) / 10;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const uid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function readJSON(k, fb){ try{ const v = JSON.parse(localStorage.getItem(k)); return v == null ? fb : v; }catch(e){ return fb; } }
+function writeJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function inkFor(hex){   // dark or light text, whichever reads on this colour
+  const h = hex.replace('#',''), n = h.length === 3 ? h.split('').map(c => c + c).join('') : h.slice(0, 6);
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16) / 255);
+  return (0.2126*r + 0.7152*g + 0.0722*b) > .55 ? '#1d1b18' : '#f7f3ea';
+}
+
+/* ================= state ================= */
+let pins = [], pinsById = new Map();
+function setPins(p){ pins = Array.isArray(p) ? p.filter(x => x && x.id) : []; pinsById = new Map(pins.map(x => [x.id, x])); }
+setPins(readJSON(KEY_PINS, []));
+
+const saved = readJSON(KEY_BOARD, {}) || {};
+const board = {
+  cards: saved.cards && typeof saved.cards === 'object' ? saved.cards : {},
+  notes: saved.notes && typeof saved.notes === 'object' ? saved.notes : {},
+  links: Array.isArray(saved.links) ? saved.links : [],
+  bg: BGS.some(b => b.id === saved.bg) ? saved.bg : 'cork',
+  def: Object.assign({style:'string', color:'#c0282d', arrow:'none'}, saved.def),
+  noteDef: Object.assign({d:84, color:'#e8b04a'}, saved.noteDef),
+  look: Object.assign({fx:'none', bright:1, bgBright:1}, saved.look),
+  top: saved.top || 0
+};
+let view = saved.view && isFinite(saved.view.z) ? saved.view : null;
+const ui = {connect:false, source:null, sel:null, link:null, sheet:null, editing:null};
+const heights = {};
+
+let saveT;
+function save(){ clearTimeout(saveT); saveT = setTimeout(() => writeJSON(KEY_BOARD, {...board, view}), 250); }
+
+/* a node is anything a line can attach to: a pinned card or a circle */
+const isNote = (id) => !!board.notes[id];
+const nodePos = (id) => board.cards[id] || board.notes[id];
+const nodeExists = (id) => (board.cards[id] && pinsById.has(id)) || !!board.notes[id];
+
+/* ================= placing new pins ================= */
+function syncPins(){
+  for(const id of Object.keys(board.cards)) if(!pinsById.has(id)) delete board.cards[id];
+  board.links = board.links.filter(l => nodeExists(l.a) && nodeExists(l.b));
+  const fresh = pins.filter(p => !board.cards[p.id]);
+  if(!fresh.length) return;
+  const c = screenToWorld(innerWidth / 2, innerHeight / 2), per = Math.min(4, fresh.length);
+  fresh.forEach((p, i) => {
+    const col = i % per, row = Math.floor(i / per);
+    board.cards[p.id] = {
+      x: Math.round(c.x + (col - per / 2) * (CW + 50) + 25 + Math.random() * 20),
+      y: Math.round(c.y - 140 + row * 320 + Math.random() * 20),
+      r: +((Math.random() - .5) * 6).toFixed(2), z: ++board.top
+    };
+  });
+  save();
+}
+
+/* ================= rendering ================= */
+const viewEl = $('#view'), world = $('#world'), cardsEl = $('#cards'), notesEl = $('#notes'), svg = $('#links');
+
+function renderCards(){
+  cardsEl.innerHTML = '';
+  for(const p of pins){
+    const c = board.cards[p.id]; if(!c) continue;
+    const el = document.createElement('div');
+    el.className = 'card'; el.dataset.id = p.id;
+    el.style.cssText = `left:${c.x}px;top:${c.y}px;width:${CW}px;z-index:${c.z || 0};--r:${c.r || 0}deg;--c:${safeColor(p.color, '#888')}`;
+    el.innerHTML = (p.img ? `<img alt="" draggable="false" referrerpolicy="no-referrer" src="${esc(p.img)}">` : '') +
+      `<div class="meta"><i></i>${esc(p.topic || '')}${p.label ? ` · ${esc(p.label)}` : ''}</div><div class="t">${esc(p.title)}</div>`;
+    const img = el.querySelector('img');
+    if(img) img.onerror = () => { img.remove(); measure(); };
+    cardsEl.appendChild(el);
+  }
+  measure();
+  $('#empty').style.display = pins.length || Object.keys(board.notes).length ? 'none' : 'flex';
+  $('#count').textContent = pins.length ? `${pins.length} pinned` : '';
+}
+function measure(){ cardsEl.querySelectorAll('.card').forEach(el => heights[el.dataset.id] = el.offsetHeight); renderLinks(); applySel(); }
+
+function noteEl(id){
+  const n = board.notes[id], col = safeColor(n.color, '#e8b04a');
+  const el = document.createElement('div');
+  el.className = 'note'; el.dataset.id = id;
+  el.style.cssText = `left:${n.x}px;top:${n.y}px;z-index:${n.z || 0};--d:${clamp(+n.d || 84, 40, 220)}px;--nc:${col};--nt:${inkFor(col)}`;
+  el.innerHTML = `<div class="txt" data-ph="${n.d >= 84 ? 'Tap to write' : ''}"></div>`;
+  el.querySelector('.txt').textContent = n.text || '';
+  return el;
+}
+function renderNotes(){
+  if(ui.editing) return;   // don't yank the caret away mid-typing
+  notesEl.innerHTML = '';
+  for(const id of Object.keys(board.notes)) notesEl.appendChild(noteEl(id));
+  applySel();
+}
+
+/* where a line meets a node: a card's pin, or the rim of a circle facing the other end */
+function pinPoint(id){
+  const c = board.cards[id], h = heights[id] || 260, k = h / 2 - 3, r = (c.r || 0) * Math.PI / 180;
+  return {x: c.x + CW / 2 + k * Math.sin(r), y: c.y + h / 2 - k * Math.cos(r)};
+}
+function ends(l){
+  let A = isNote(l.a) ? {x: board.notes[l.a].x, y: board.notes[l.a].y} : pinPoint(l.a);
+  let B = isNote(l.b) ? {x: board.notes[l.b].x, y: board.notes[l.b].y} : pinPoint(l.b);
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  if(isNote(l.a)){ const r = board.notes[l.a].d / 2; A = {x: A.x + ux * r, y: A.y + uy * r}; }
+  if(isNote(l.b)){ const r = board.notes[l.b].d / 2; B = {x: B.x - ux * r, y: B.y - uy * r}; }
+  return {A, B, insetA: isNote(l.a) ? 0 : 9, insetB: isNote(l.b) ? 0 : 9};
+}
+
+const P = (d, col, w, extra = '') => `<path d="${d}" stroke="${col}" stroke-width="${w}" fill="none" ${extra}/>`;
+function linkParts(l, A, B, insetA, insetB, preview){
+  const col = safeColor(l.color, '#c0282d');
+  A = {x: f1(A.x), y: f1(A.y)}; B = {x: f1(B.x), y: f1(B.y)};
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+  let d = `M${A.x} ${A.y} L${B.x} ${B.y}`, parts, inA = [-dx, -dy], inB = [dx, dy];
+  switch(l.style){
+    case 'string': {
+      const sag = preview ? 7 : 14 + Math.min(90, len * .16), C = {x: f1((A.x + B.x) / 2), y: f1((A.y + B.y) / 2 + sag)};
+      d = `M${A.x} ${A.y} Q${C.x} ${C.y} ${B.x} ${B.y}`;
+      parts = P(d, col, 2.6, 'stroke-linecap="round"') + P(d, 'rgba(255,255,255,.3)', 1.1, 'stroke-dasharray="1.5 3"');
+      inA = [A.x - C.x, A.y - C.y]; inB = [B.x - C.x, B.y - C.y];
+      break;
+    }
+    case 'dashed': parts = P(d, col, 2.4, 'stroke-dasharray="10 7"'); break;
+    case 'dotted': parts = P(d, col, 3.4, 'stroke-dasharray="0 7" stroke-linecap="round"'); break;
+    case 'zigzag': {
+      const n = Math.max(2, Math.round(len / 10)), amp = preview ? 4 : 5;
+      let pts = `${A.x},${A.y}`;
+      for(let i = 1; i < n; i++){ const t = i / n, o = i % 2 ? amp : -amp; pts += ` ${f1(A.x + dx*t + nx*o)},${f1(A.y + dy*t + ny*o)}`; }
+      parts = `<polyline points="${pts} ${B.x},${B.y}" stroke="${col}" stroke-width="2" fill="none" stroke-linejoin="round"/>`;
+      break;
+    }
+    case 'double': parts = [-2.6, 2.6].map(o => P(`M${f1(A.x + nx*o)} ${f1(A.y + ny*o)} L${f1(B.x + nx*o)} ${f1(B.y + ny*o)}`, col, 1.6)).join(''); break;
+    case 'chain': parts = P(d, col, 5.5, 'stroke-dasharray="7 5" stroke-linecap="round"') + P(d, 'rgba(0,0,0,.4)', 1.6, 'stroke-dasharray="7 5"'); break;
+    case 'tape': parts = P(d, col, preview ? 10 : 14, 'stroke-opacity=".72"'); break;
+    default: parts = P(d, col, 2.4);
+  }
+  const head = (T, dir, inset) => {
+    const L = Math.hypot(dir[0], dir[1]) || 1, ux = dir[0] / L, uy = dir[1] / L;
+    const big = l.style === 'tape' || l.style === 'chain', s = big ? 17 : 12, w = big ? 11 : 6.5;
+    const tx = T.x - ux * inset, ty = T.y - uy * inset;
+    return `<polygon points="${f1(tx)},${f1(ty)} ${f1(tx - ux*s - uy*w)},${f1(ty - uy*s + ux*w)} ${f1(tx - ux*s + uy*w)},${f1(ty - uy*s - ux*w)}" fill="${col}"/>`;
+  };
+  if(l.arrow === 'end' || l.arrow === 'both') parts += head(B, inB, insetB);
+  if(l.arrow === 'both') parts += head(A, inA, insetA);
+  return {d, parts};
+}
+
+const DEFS = '<defs><filter id="sh" filterUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000"><feDropShadow dx="1" dy="2.5" stdDeviation="1.4" flood-color="#000" flood-opacity=".45"/></filter></defs>';
+function renderLinks(){
+  const ids = Object.keys(board.cards).filter(id => pinsById.has(id)), nids = Object.keys(board.notes);
+  if(!ids.length && !nids.length){ svg.innerHTML = ''; return; }
+  // size the svg to everything on the board so every line stays clickable
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for(const id of ids){ const c = board.cards[id]; x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x + CW); y1 = Math.max(y1, c.y + (heights[id] || 260)); }
+  for(const id of nids){ const n = board.notes[id], r = n.d / 2; x0 = Math.min(x0, n.x - r); y0 = Math.min(y0, n.y - r); x1 = Math.max(x1, n.x + r); y1 = Math.max(y1, n.y + r); }
+  x0 -= 300; y0 -= 300; x1 += 300; y1 += 300;
+  svg.setAttribute('viewBox', `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
+  svg.style.cssText = `left:${x0}px;top:${y0}px;width:${x1 - x0}px;height:${y1 - y0}px`;
+  let out = DEFS;
+  for(const l of board.links){
+    if(!nodeExists(l.a) || !nodeExists(l.b)) continue;
+    const {A, B, insetA, insetB} = ends(l);
+    const {d, parts} = linkParts(l, A, B, insetA, insetB);
+    out += `<g class="link${l.id === ui.link ? ' sel' : ''}" data-id="${esc(l.id)}"><g filter="url(#sh)">${parts}</g><path class="hit" d="${d}"/></g>`;
+  }
+  // pushpins sit on top of the string, like the real thing
+  for(const id of ids){
+    const p = pinPoint(id), col = safeColor(pinsById.get(id).color, '#c0282d');
+    out += `<g filter="url(#sh)"><circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="7.5" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width=".8"/><circle cx="${f1(p.x - 2.3)}" cy="${f1(p.y - 2.3)}" r="2.2" fill="rgba(255,255,255,.65)"/></g>`;
+  }
+  svg.innerHTML = out;
+}
+
+function applySel(){
+  document.querySelectorAll('.card,.note').forEach(el => {
+    el.classList.toggle('sel', el.dataset.id === ui.sel);
+    el.classList.toggle('src', el.dataset.id === ui.source);
+  });
+  renderSelbar();
+}
+
+/* ================= view ================= */
+function screenToWorld(x, y){ const v = view || {x:0, y:0, z:1}; return {x: (x - v.x) / v.z, y: (y - v.y) / v.z}; }
+function applyView(){
+  world.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.z})`;
+  const bg = BGS.find(b => b.id === board.bg);
+  viewEl.style.backgroundColor = bg.color;
+  viewEl.style.backgroundImage = bg.image;
+  viewEl.style.backgroundSize = `${bg.size * view.z}px ${bg.size * view.z}px`;
+  viewEl.style.backgroundPosition = `${view.x}px ${view.y}px`;
+  placeSelbar();
+}
+function zoomAt(cx, cy, factor){
+  const w = screenToWorld(cx, cy), z = clamp(view.z * factor, .15, 2.5);
+  view = {x: cx - w.x * z, y: cy - w.y * z, z};
+  applyView(); save();
+}
+function fit(){
+  const boxes = [];
+  for(const p of pins){ const c = board.cards[p.id]; if(c) boxes.push([c.x, c.y, c.x + CW, c.y + (heights[p.id] || 260)]); }
+  for(const n of Object.values(board.notes)) boxes.push([n.x - n.d/2, n.y - n.d/2, n.x + n.d/2, n.y + n.d/2]);
+  if(!boxes.length){ view = {x: innerWidth / 2, y: innerHeight / 2, z: 1}; applyView(); return; }
+  const x0 = Math.min(...boxes.map(b => b[0])) - 20, y0 = Math.min(...boxes.map(b => b[1])) - 20;
+  const x1 = Math.max(...boxes.map(b => b[2])) + 20, y1 = Math.max(...boxes.map(b => b[3])) + 20;
+  const top = $('header').offsetHeight + 12, bottom = innerHeight - $('#tools').getBoundingClientRect().top + 12;
+  const aw = innerWidth - 24, ah = innerHeight - top - bottom;
+  const z = clamp(Math.min(aw / (x1 - x0), ah / (y1 - y0)), .15, 1.2);
+  view = {x: 12 + (aw - (x1 - x0) * z) / 2 - x0 * z, y: top + (ah - (y1 - y0) * z) / 2 - y0 * z, z};
+  applyView(); save();
+}
+
+/* ================= gestures: drag, pan, pinch, tap ================= */
+const ptrs = new Map(); let g = null;
+viewEl.addEventListener('pointerdown', e => {
+  if(e.target.isContentEditable) return;            // let the caret go where it's tapped
+  if(ui.editing) document.activeElement.blur();
+  try{ viewEl.setPointerCapture(e.pointerId); }catch(err){}
+  ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  if(ptrs.size === 2){
+    if(g && g.el) g.el.classList.remove('drag');
+    const [a, b] = [...ptrs.values()], m = screenToWorld((a.x + b.x) / 2, (a.y + b.y) / 2);
+    g = {type:'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: view.z, wx: m.x, wy: m.y};
+    return;
+  }
+  if(ptrs.size > 2) return;
+  let node = e.target.closest('.card,.note'); const hit = e.target.closest('.hit');
+  // finishing a text edit re-renders the circles, so look the element up again
+  if(node && !node.isConnected) node = document.querySelector(`[data-id="${CSS.escape(node.dataset.id)}"]`);
+  g = {type: node ? 'node' : hit ? 'link' : 'pan', id: node ? node.dataset.id : hit ? hit.parentNode.dataset.id : null,
+       el: node, sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false};
+  if(node){ const n = nodePos(g.id); g.nx = n.x; g.ny = n.y; }
+});
+viewEl.addEventListener('pointermove', e => {
+  if(!ptrs.has(e.pointerId) || !g) return;
+  ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  if(g.type === 'pinch'){
+    if(ptrs.size < 2) return;
+    const [a, b] = [...ptrs.values()], z = clamp(g.z0 * Math.hypot(a.x - b.x, a.y - b.y) / g.d0, .15, 2.5);
+    view = {x: (a.x + b.x) / 2 - g.wx * z, y: (a.y + b.y) / 2 - g.wy * z, z};
+    applyView(); return;
+  }
+  const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+  if(!g.moved){
+    if(Math.hypot(dx, dy) < 6) return;
+    g.moved = true;
+    if(g.type === 'node'){ g.el.classList.add('drag'); const n = nodePos(g.id); n.z = ++board.top; g.el.style.zIndex = n.z; }
+    else { g.type = 'pan'; viewEl.classList.add('panning'); }
+  }
+  if(g.type === 'node'){
+    const n = nodePos(g.id);
+    n.x = Math.round(g.nx + dx / view.z); n.y = Math.round(g.ny + dy / view.z);
+    g.el.style.left = n.x + 'px'; g.el.style.top = n.y + 'px';
+    renderLinks(); placeSelbar();
+  } else { view.x = g.vx + dx; view.y = g.vy + dy; applyView(); }
+});
+function pointerEnd(e){
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if(!g) return;
+  if(g.type === 'pinch'){ if(!ptrs.size){ g = null; save(); } return; }   // wait for every finger to lift
+  const done = g; g = null;
+  viewEl.classList.remove('panning');
+  if(done.el) done.el.classList.remove('drag');
+  if(done.moved || e.type === 'pointercancel') return save();
+  tap(done);
+}
+viewEl.addEventListener('pointerup', pointerEnd);
+viewEl.addEventListener('pointercancel', pointerEnd);
+viewEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015)));
+}, {passive: false});
+
+function tap(t){
+  if(t.type === 'node'){
+    if(ui.connect) return connectTap(t.id);
+    if(ui.sel === t.id && isNote(t.id)) return editNote(t.id);   // second tap on a circle: write in it
+    select(t.id, null);
+  } else if(t.type === 'link'){
+    select(null, t.id); openSheet('line');
+  } else {
+    if(ui.connect){ if(ui.source){ ui.source = null; hint(); applySel(); } else setConnect(false); return; }
+    select(null, null); closeSheet();
+  }
+}
+
+/* ================= selection ================= */
+function select(node, link){
+  ui.sel = node; ui.link = link;
+  applySel(); renderLinks();
+  if(ui.sheet === 'line') renderSheet();
+}
+function renderSelbar(){
+  const bar = $('#selbar'), id = ui.sel;
+  if(!id || ui.connect || !nodeExists(id)){ bar.hidden = true; return; }
+  if(isNote(id)){
+    const n = board.notes[id];
+    bar.innerHTML =
+      SIZES.map(s => `<button class="sb${n.d === s.id ? ' on' : ''}" data-size="${s.id}">${s.name}</button>`).join('') +
+      `<span class="sbsep"></span>` +
+      NOTE_COLORS.map(c => `<button class="dot${n.color === c ? ' on' : ''}" data-ncolor="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('') +
+      `<span class="sbsep"></span><button class="sb" data-act="edit">✎ Text</button><button class="sb" data-act="link">Connect</button><button class="sb danger" data-act="del">Delete</button>`;
+  } else {
+    const p = pinsById.get(id), wall = /^\d{1,4}-\d{2}-\d{2}$/.test(p.wall || '') ? p.wall : '';
+    bar.innerHTML =
+      `<a class="sb" href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener noreferrer">Open ↗</a>` +
+      (wall ? `<a class="sb" href="index.html#${wall}">On the wall</a>` : '') +
+      `<button class="sb" data-act="link">Connect</button><button class="sb danger" data-act="del">Remove</button>`;
+  }
+  bar.hidden = false;
+  placeSelbar();
+}
+function placeSelbar(){
+  const bar = $('#selbar'); if(bar.hidden || !ui.sel) return;
+  const el = document.querySelector(`[data-id="${CSS.escape(ui.sel)}"]`); if(!el) return;
+  const r = el.getBoundingClientRect(), bw = bar.offsetWidth, bh = bar.offsetHeight, top = $('header').offsetHeight + 8;
+  let y = r.top - bh - 14;
+  if(y < top) y = Math.min(r.bottom + 14, innerHeight - bh - 90);
+  bar.style.left = clamp(r.left + r.width / 2 - bw / 2, 8, innerWidth - bw - 8) + 'px';
+  bar.style.top = Math.max(top, y) + 'px';
+}
+$('#selbar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const id = ui.sel, n = board.notes[id];
+  if(b.dataset.size && n){ n.d = +b.dataset.size; board.noteDef.d = n.d; }
+  else if(b.dataset.ncolor && n){ n.color = b.dataset.ncolor; board.noteDef.color = n.color; }
+  else if(b.dataset.act === 'edit') return editNote(id);
+  else if(b.dataset.act === 'link'){ setConnect(true); ui.source = id; ui.sel = null; hint(); applySel(); return; }
+  else if(b.dataset.act === 'del') return removeNode(id);
+  else return;
+  renderNotes(); renderLinks(); save();
+});
+
+/* ================= circles ================= */
+function addNote(){
+  const c = screenToWorld(innerWidth / 2, innerHeight / 2), id = uid('n');
+  board.notes[id] = {x: Math.round(c.x + (Math.random() - .5) * 60), y: Math.round(c.y + (Math.random() - .5) * 60), d: board.noteDef.d, color: board.noteDef.color, text: '', z: ++board.top};
+  setConnect(false);
+  renderNotes(); renderLinks(); select(id, null); save();
+  $('#empty').style.display = 'none';
+  toast('Circle added · tap it again to write in it');
+}
+function editNote(id){
+  const el = notesEl.querySelector(`[data-id="${CSS.escape(id)}"] .txt`); if(!el) return;
+  ui.editing = id;
+  el.contentEditable = 'true'; el.focus();
+  const range = document.createRange(); range.selectNodeContents(el);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(range);
+}
+notesEl.addEventListener('keydown', e => {
+  if(!e.target.isContentEditable) return;
+  if(e.key === 'Enter' || e.key === 'Escape'){ e.preventDefault(); e.target.blur(); }
+});
+notesEl.addEventListener('input', e => {   // keep it short: a few words
+  const t = e.target; if(t.textContent.length > 40){ t.textContent = t.textContent.slice(0, 40); const r = document.createRange(); r.selectNodeContents(t); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+});
+notesEl.addEventListener('focusout', e => {
+  const t = e.target; if(!t.isContentEditable) return;
+  const id = t.closest('.note').dataset.id;
+  t.contentEditable = 'false';
+  if(board.notes[id]) board.notes[id].text = t.textContent.replace(/\s+/g, ' ').trim().slice(0, 40);
+  ui.editing = null;
+  renderNotes(); save();
+});
+
+/* ================= removing (with undo) ================= */
+let undo = null;
+function removeNode(id){
+  const removed = {id, links: board.links.filter(l => l.a === id || l.b === id)};
+  if(isNote(id)){ removed.note = board.notes[id]; delete board.notes[id]; }
+  else {
+    removed.pin = pinsById.get(id); removed.index = pins.findIndex(p => p.id === id); removed.card = board.cards[id];
+    setPins(pins.filter(p => p.id !== id)); writeJSON(KEY_PINS, pins);
+    delete board.cards[id];
+  }
+  board.links = board.links.filter(l => l.a !== id && l.b !== id);
+  if(ui.source === id) ui.source = null;
+  undo = removed;
+  select(null, null); renderCards(); renderNotes(); save();
+  toast(removed.note ? 'Circle deleted' : 'Removed from board', 'Undo', () => {
+    const u = undo; if(!u) return; undo = null;
+    if(u.note) board.notes[u.id] = u.note;
+    else { const p = readJSON(KEY_PINS, []); p.splice(clamp(u.index, 0, p.length), 0, u.pin); setPins(p); writeJSON(KEY_PINS, pins); board.cards[u.id] = u.card; }
+    board.links.push(...u.links);
+    renderCards(); renderNotes(); save();
+  });
+}
+
+/* ================= connecting ================= */
+function setConnect(on){
+  ui.connect = on; if(!on) ui.source = null;
+  if(on) ui.sel = null;
+  $('#tConnect').classList.toggle('on', on);
+  viewEl.classList.toggle('connecting', on);
+  hint(); applySel();
+}
+function connectTap(id){
+  if(!ui.source) ui.source = id;
+  else if(ui.source === id) ui.source = null;
+  else {
+    const a = ui.source, b = id;
+    const ex = board.links.find(l => (l.a === a && l.b === b) || (l.a === b && l.b === a));
+    if(ex) Object.assign(ex, board.def, {a, b});
+    else board.links.push({id: uid('l'), a, b, ...board.def});
+    ui.source = null;
+    renderLinks(); save();
+    toast('Connected · tap the line to restyle it');
+  }
+  hint(); applySel();
+}
+function hint(){
+  const h = $('#hint');
+  if(!ui.connect){ h.hidden = true; return; }
+  h.textContent = ui.source ? 'Now tap what to connect it to' : 'Tap a card or circle to start a line';
+  h.hidden = false;
+}
+
+/* ================= sheets: line style & background ================= */
+function openSheet(name){ ui.sheet = name; if(ui.sel){ ui.sel = null; applySel(); } renderSheet(); }
+function closeSheet(){ ui.sheet = null; $('#sheet').hidden = true; $('#tLine').classList.remove('on'); $('#tBg').classList.remove('on'); }
+function previewSVG(l){
+  const {parts} = linkParts(l, {x: 8, y: 10}, {x: 72, y: 10}, 0, 0, true);
+  return `<svg viewBox="0 0 80 24" preserveAspectRatio="xMidYMid meet">${parts}</svg>`;
+}
+function renderSheet(){
+  const sh = $('#sheet');
+  $('#tLine').classList.toggle('on', ui.sheet === 'line');
+  $('#tBg').classList.toggle('on', ui.sheet === 'bg');
+  if(!ui.sheet){ sh.hidden = true; return; }
+  const bgc = BGS.find(b => b.id === board.bg).color;
+  if(ui.sheet === 'line'){
+    const L = board.links.find(l => l.id === ui.link), cur = L || board.def;
+    sh.innerHTML =
+      `<h5>${L ? 'This line' : 'New lines'}</h5><div class="opts">` +
+      STYLES.map(s => `<button class="opt" data-style="${s.id}" aria-pressed="${cur.style === s.id}"><span class="pv" style="background:${bgc}">${previewSVG({...cur, style: s.id, arrow: 'none'})}</span>${s.name}</button>`).join('') +
+      `</div><h5>Colour</h5><div class="swatches">` +
+      LINE_COLORS.map(c => `<button class="dot${cur.color === c ? ' on' : ''}" data-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join('') +
+      `</div><h5>Arrows</h5><div class="opts three">` +
+      ARROWS.map(a => `<button class="opt" data-arrow="${a.id}" aria-pressed="${cur.arrow === a.id}"><span class="pv" style="background:${bgc}">${previewSVG({...cur, style: cur.style === 'string' ? 'line' : cur.style, arrow: a.id})}</span>${a.name}</button>`).join('') +
+      `</div>` + (L ? `<button class="wide" data-act="dellink">Delete this line</button>` : '');
+  } else {
+    const pct = (v) => Math.round(v * 100) + '%';
+    sh.innerHTML = `<h5>Brightness</h5>` +
+      `<label class="slider">Whole board<input type="range" min="25" max="100" step="1" data-look="bright" value="${Math.round(board.look.bright * 100)}"><output>${pct(board.look.bright)}</output></label>` +
+      `<label class="slider">Background<input type="range" min="10" max="100" step="1" data-look="bgBright" value="${Math.round(board.look.bgBright * 100)}"><output>${pct(board.look.bgBright)}</output></label>` +
+      `<h5>Sky effects</h5><div class="opts three">` +
+      FX.map(x => `<button class="opt" data-fx="${x.id}" aria-pressed="${board.look.fx === x.id}"><span class="fxpv ${x.id}"></span>${x.name}</button>`).join('') +
+      `</div><h5>Background</h5><div class="opts">` +
+      BGS.map(b => `<button class="opt" data-bg="${b.id}" aria-pressed="${board.bg === b.id}"><span class="bgpv" style="background-color:${b.color};background-image:${b.image};background-size:${b.size}px ${b.size}px"></span>${b.name}</button>`).join('') +
+      `</div>`;
+  }
+  sh.hidden = false;
+}
+$('#sheet').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const L = board.links.find(l => l.id === ui.link), cur = ui.sheet === 'line' ? (L || board.def) : null;
+  if(b.dataset.style) cur.style = b.dataset.style;
+  else if(b.dataset.color) cur.color = b.dataset.color;
+  else if(b.dataset.arrow) cur.arrow = b.dataset.arrow;
+  else if(b.dataset.bg){ board.bg = b.dataset.bg; applyView(); }
+  else if(b.dataset.fx){ board.look.fx = b.dataset.fx; applyLook(); }
+  else if(b.dataset.act === 'dellink' && L){ board.links = board.links.filter(l => l !== L); ui.link = null; closeSheet(); }
+  if(L) Object.assign(board.def, {style: L.style, color: L.color, arrow: L.arrow});   // the last look you picked becomes the default
+  renderLinks(); renderSheet(); updateLinePv(); save();
+});
+// toolbar icon shows the current style in the toolbar's own colour, so a black line stays visible
+// sliders update live without re-rendering the sheet, so dragging them stays smooth
+$('#sheet').addEventListener('input', e => {
+  const k = e.target.dataset.look; if(!k) return;
+  board.look[k] = +e.target.value / 100;
+  e.target.nextElementSibling.textContent = e.target.value + '%';
+  applyLook(); save();
+});
+function applyLook(){
+  $('#dim').style.opacity = 1 - clamp(+board.look.bright || 1, .25, 1);
+  $('#bgdim').style.opacity = 1 - clamp(+board.look.bgBright || 1, .1, 1);
+  sky.set(FX.some(x => x.id === board.look.fx) ? board.look.fx : 'none');
+}
+
+/* ================= sky effects: drifting, twinkling stars with shooting stars, or a turning galaxy ================= */
+const FX = [{id:'none', name:'None'}, {id:'stars', name:'Stars'}, {id:'galaxy', name:'Galaxy'}];
+const sky = (() => {
+  const cv = $('#fx'), ctx = cv.getContext('2d');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let mode = 'none', W = 0, H = 0, raf = 0, last = 0, nextShot = 0, stars = [], dust = [], shots = [];
+
+  function build(){
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stars = Array.from({length: Math.round(W * H / (mode === 'galaxy' ? 4200 : 2400))}, () => ({
+      x: Math.random() * W, y: Math.random() * H, r: Math.random() < .92 ? .4 + Math.random() * .9 : 1.3 + Math.random() * 1.1,
+      ph: Math.random() * 6.3, sp: .6 + Math.random() * 2.2, v: .004 + Math.random() * .014,
+      c: Math.random() < .15 ? '#cfd8ff' : Math.random() < .1 ? '#ffe2b8' : '#ffffff'
+    }));
+    dust = [];
+    if(mode === 'galaxy'){
+      const n = W < 600 ? 1100 : 2200;
+      for(let i = 0; i < n; i++){
+        const rr = Math.pow(Math.random(), .55), arm = i % 3;
+        const hue = rr < .18 ? 38 : 200 + rr * 80 + (Math.random() - .5) * 30;
+        dust.push({rr, a: arm * 2.094 + rr * 5.4 + (Math.random() - .5) * (1 - rr * .55), off: (Math.random() - .5) * .07,
+                   s: .4 + Math.random() * (rr < .2 ? 1.6 : 1.2), c: `hsla(${hue},${rr < .18 ? 90 : 75}%,${rr < .18 ? 85 : 72}%,${.35 + Math.random() * .5})`});
+      }
+    }
+  }
+  function shoot(now){
+    const fromLeft = Math.random() < .5, ang = (fromLeft ? 1 : -1) * (.25 + Math.random() * .35);
+    shots.push({x: fromLeft ? Math.random() * W * .6 : W * .4 + Math.random() * W * .6, y: Math.random() * H * .45,
+                dx: Math.cos(ang) * (fromLeft ? 1 : -1), dy: Math.abs(Math.sin(ang)), len: 120 + Math.random() * 160, born: now, life: 900 + Math.random() * 700, speed: .7 + Math.random() * .5});
+    nextShot = now + 2500 + Math.random() * 6500;
+  }
+  function draw(now){
+    const dt = Math.min(50, now - (last || now)); last = now;
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    for(const s of stars){
+      if(!still){ s.x -= s.v * dt; if(s.x < -3) s.x = W + 3; }
+      ctx.globalAlpha = .45 + .55 * Math.abs(Math.sin(now * .001 * s.sp + s.ph));
+      ctx.fillStyle = s.c;
+      if(s.r < 1.2) ctx.fillRect(s.x, s.y, s.r, s.r); else { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+    if(mode === 'galaxy'){
+      const cx = W * .6, cy = H * .45, R = Math.min(W, H) * .46, tilt = -.42, ct = Math.cos(tilt), st = Math.sin(tilt);
+      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * .38);
+      glow.addColorStop(0, 'rgba(255,228,190,.55)'); glow.addColorStop(.4, 'rgba(200,150,255,.16)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      const t = still ? 0 : now;
+      for(const p of dust){
+        const a = p.a + t * .00009 / (p.rr + .2);          // inner stars orbit faster
+        const x = Math.cos(a) * p.rr * R, y = (Math.sin(a) * p.rr + p.off) * R * .42;
+        ctx.fillStyle = p.c;
+        ctx.fillRect(cx + x * ct - y * st, cy + x * st + y * ct, p.s, p.s);
+      }
+    }
+    if(!still){
+      if(now > nextShot) shoot(now);
+      shots = shots.filter(s => now - s.born < s.life);
+      for(const s of shots){
+        const age = (now - s.born) / s.life, d = (now - s.born) * s.speed;
+        const hx = s.x + s.dx * d, hy = s.y + s.dy * d, tx = hx - s.dx * s.len, ty = hy - s.dy * s.len;
+        const gr = ctx.createLinearGradient(hx, hy, tx, ty);
+        gr.addColorStop(0, `rgba(255,255,255,${.95 * (1 - age)})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.strokeStyle = gr; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx, ty); ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function loop(now){ draw(now); raf = still ? 0 : requestAnimationFrame(loop); }
+  function set(m){
+    if(m === mode && (raf || still)) return;
+    mode = m; cancelAnimationFrame(raf); raf = 0; shots = [];
+    if(mode === 'none'){ ctx.clearRect(0, 0, W, H); cv.hidden = true; return; }
+    cv.hidden = false; build(); last = 0; nextShot = performance.now() + 1200;
+    raf = requestAnimationFrame(loop);
+  }
+  window.addEventListener('resize', () => { if(mode !== 'none'){ build(); if(still) draw(performance.now()); } });
+  return {set};
+})();
+
+function updateLinePv(){ $('#linePv').innerHTML = linkParts({...board.def, color: 'currentColor', arrow: 'none'}, {x: 2, y: 15}, {x: 22, y: 9}, 0, 0, true).parts; }
+
+/* ================= toolbar, toast, keys ================= */
+$('#tConnect').onclick = () => { closeSheet(); setConnect(!ui.connect); };
+$('#tCircle').onclick = () => { closeSheet(); addNote(); };
+$('#tLine').onclick = () => { if(ui.sheet === 'line') closeSheet(); else { ui.link = null; renderLinks(); openSheet('line'); } };
+$('#tBg').onclick = () => ui.sheet === 'bg' ? closeSheet() : openSheet('bg');
+$('#tFit').onclick = () => { closeSheet(); fit(); };
+
+let toastT;
+function toast(msg, action, fn){
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<button>${esc(action)}</button>` : '');
+  if(action) t.querySelector('button').onclick = () => { t.hidden = true; fn(); };
+  t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, action ? 6000 : 2600);
+}
+
+document.addEventListener('keydown', e => {
+  if(e.target.isContentEditable) return;
+  if(e.key === 'Escape'){ if(ui.sheet) closeSheet(); else if(ui.connect) setConnect(false); else select(null, null); }
+  if((e.key === 'Delete' || e.key === 'Backspace') && ui.link){ board.links = board.links.filter(l => l.id !== ui.link); select(null, null); closeSheet(); save(); }
+});
+window.addEventListener('resize', placeSelbar);
+// pins added on the wall in another tab show up here straight away
+window.addEventListener('storage', e => { if(e.key === KEY_PINS){ setPins(readJSON(KEY_PINS, [])); syncPins(); renderCards(); } });
+
+/* ================= go ================= */
+const firstVisit = !view;
+if(!view) view = {x: innerWidth / 2, y: innerHeight / 2, z: 1};
+syncPins();
+renderCards(); renderNotes(); updateLinePv(); applyView(); applyLook();
+if(firstVisit) requestAnimationFrame(fit);
+})();
+</script>
+</body>
+</html>
