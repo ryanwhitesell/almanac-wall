@@ -168,7 +168,33 @@ body.gallery header{background:#000;border-bottom-color:transparent;padding-bott
 body.gallery .brand,body.gallery .yearctl,body.gallery #play,body.gallery #boardLink,body.gallery .cal,body.gallery .chips{display:none}
 body.gallery .row1{position:absolute;top:10px;right:12px;z-index:2}
 body.gallery .dateline{margin:2px 0 4px}
-body.gallery .rangewrap{display:none}
+body.gallery .rangewrap,body.gallery .radio{display:none}
+
+/* ---------- radio dial: a backlit tuning scale, drag the bands under the red needle ---------- */
+.radio{display:flex;align-items:center;gap:10px;margin:10px 0 2px}
+.dial{position:relative;flex:1;min-width:0;padding:4px;border-radius:10px;background:linear-gradient(#3b2617,#1e120a);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 16px rgba(0,0,0,.45)}
+.bands{position:relative;border-radius:6px;overflow:hidden;
+  background:radial-gradient(120% 150% at 50% 115%,#ffe6a8 0%,#f1b75b 40%,#b46f22 82%,#6e3f12 100%);
+  box-shadow:inset 0 0 14px rgba(60,25,0,.55),inset 0 2px 3px rgba(0,0,0,.35)}
+/* glass sheen on top, darker toward the curved ends */
+.bands::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0) 38%),linear-gradient(90deg,rgba(40,15,0,.55),transparent 16%,transparent 84%,rgba(40,15,0,.55))}
+.band{position:relative;display:flex;height:30px;cursor:ew-resize;touch-action:none;outline:none;user-select:none;-webkit-user-select:none}
+.band.drag{cursor:grabbing}
+.band + .band{border-top:1px solid rgba(58,33,15,.25)}
+.band b{flex:none;width:44px;display:flex;align-items:center;justify-content:center;font:600 9.5px var(--mono);letter-spacing:.14em;color:rgba(58,33,15,.75);border-right:1px solid rgba(58,33,15,.25)}
+.band:focus-visible b{color:#8a1d10}
+.band canvas{flex:1;min-width:0;height:100%;display:block}
+.needle{position:absolute;top:2px;bottom:2px;left:calc(4px + 44px + (100% - 52px) / 2);width:2px;margin-left:-1px;border-radius:1px;pointer-events:none;
+  background:#d42a1c;box-shadow:0 0 6px 1px rgba(255,70,30,.7)}
+.knob{flex:none;position:relative;width:48px;height:48px;border-radius:50%;cursor:grab;touch-action:none;
+  box-shadow:0 4px 10px rgba(0,0,0,.6),0 0 0 3px #1a0f08,0 0 0 4px rgba(255,255,255,.06)}
+.knob .rot{position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(#2b1a0e 0 5deg,#4a3020 5deg 10deg)}
+.knob .rot::before{content:'';position:absolute;inset:7px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#3d2718,#24160c)}
+.knob i{position:absolute;left:50%;top:9px;width:4px;height:11px;margin-left:-2px;border-radius:2px;background:#f0c070;box-shadow:0 0 4px rgba(240,192,112,.6)}
+.knob::after{content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.22),transparent 48%)}
+.knob.drag{cursor:grabbing}
 body.gallery #gallery{opacity:.45;transition:opacity .2s}
 body.gallery #gallery:hover{opacity:1}
 body.gallery #backdrop{display:none}
@@ -197,6 +223,11 @@ body.gallery #status:not(:has(.spin)){display:none}
   .brand{font-size:21px}
   .pill{padding:0 11px}
   .row1{gap:6px}
+  .radio{gap:8px;margin-top:8px}
+  .band{height:28px}
+  .band b{width:36px;font-size:8.5px}
+  .needle{left:calc(4px + 36px + (100% - 44px) / 2)}
+  .knob{width:42px;height:42px}
   .pill .lbl{display:none}   /* icons only, so the header fits a phone */
   .cluster-label h2{font-size:26px}
 }
@@ -215,6 +246,16 @@ body.gallery #status:not(:has(.spin)){display:none}
     <button id="play" class="pill" title="Advance one day every few seconds"><b>▶</b><span class="lbl">Follow</span></button>
     <button id="gallery" class="pill" title="Pictures only, full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">Gallery</span></button>
     <a id="boardLink" class="pill" href="board.html" title="Your pinned articles"><b>📌</b><span class="lbl">Board</span><span id="pinCount"></span></a>
+  </div>
+  <div class="radio" id="radio">
+    <div class="dial">
+      <div class="bands">
+        <div class="band" id="bandYear" tabindex="0" role="slider" aria-label="Year" aria-valuemin="1"><b>YEAR</b><canvas></canvas></div>
+        <div class="band" id="bandDay" tabindex="0" role="slider" aria-label="Day of the year" aria-valuemin="1"><b>DAY</b><canvas></canvas></div>
+      </div>
+      <div class="needle" aria-hidden="true"></div>
+    </div>
+    <div class="knob" id="knob" title="Turn to change the year" aria-hidden="true"><div class="rot"><i></i></div></div>
   </div>
   <div class="dateline"><input id="dateTitle" type="text" spellcheck="false" autocomplete="off" enterkeyhint="go" aria-label="Date — click to type a new one" title="Click to type a date"><span id="dateSub"></span>
     <div class="rangewrap">
@@ -273,7 +314,14 @@ const ICONS = {
   med:'<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
   disaster:'<path d="M12 3 2 20h20zM12 10v5M12 17.5v.5"/>',
   culture:'<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
-  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>'
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
+  ball:'<circle cx="12" cy="12" r="9"/><path d="M3.6 9.3c5.3 1.6 11.5 1.6 16.8 0M3.6 14.7c5.3-1.6 11.5-1.6 16.8 0M12 3v18"/>',
+  plane:'<path d="M10.5 21l1.4-6.2L4 12.5v-1.8l7.9 1.1.6-8.3h1l1.8 8.3 6.7-1.1v1.8l-6.6 2.3 1.6 6.2z"/>',
+  chart:'<path d="M3 20h18M6 17v-4M11 17V9M16 17v-6M5 9.5l5-4 4 3 5-5"/>',
+  scales:'<path d="M12 3v18M8 21h8M4.5 7h15M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/>',
+  temple:'<path d="M4 21h16M6 21V10l6-6 6 6v11M10 21v-5h4v5"/>',
+  leaf:'<path d="M5 19C5 11 11 5 20 5c0 9-6 15-14 15M5 19l8.5-8.5"/>',
+  compass:'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'
 };
 const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
 
@@ -288,28 +336,50 @@ const TOPICS = [
   {id:'electronics', name:'Electronics & Tech', color:'#5cc8e8', icon:'chip',
    re:/\b(electr|computer|transistor|semiconductor|radio|television|telephone|internet|software|microprocessor|telegraph|video games?\b|nintendo|atari|ibm\b|intel\b|microsoft|macintosh|laser|digital|broadcast)/i,
    search:'computer OR electronics OR television OR software OR "video games"'},
+  {id:'transport', name:'Transport & Aviation', color:'#4a90d9', icon:'plane',
+   re:/\b(aviation|airlines?\b|aircraft|airplane|aeroplane|airport|airship|zeppelin|flights?\b|automobiles?\b|motor|cars?\b|trucks?\b|railways?\b|railroad|locomotive|subway|metro\b|steamship|ocean liner|ferry|highway|motorway|bicycle|helicopter|concorde|boeing)/i,
+   search:'aviation OR airline OR automobile OR railway OR ship'},
   {id:'plumbing', name:'Plumbing & Infrastructure', color:'#d9a15b', icon:'pipe',
-   re:/\b(plumb|water supply|sewer|sewage|pipelines?\b|pipes?\b|aqueduct|dams?\b|canal|reservoir|sanitation|waterworks|water main|irrigation|toilet|bridges?\b|tunnel|railway|railroad|subway|highway)/i,
-   search:'water OR pipeline OR dam OR bridge OR tunnel OR "rail transport"'},
+   re:/\b(plumb|water supply|sewer|sewage|pipelines?\b|pipes?\b|aqueduct|dams?\b|canal|reservoir|sanitation|waterworks|water main|irrigation|toilet|bridges?\b|tunnel|skyscraper|power station|power plant)/i,
+   search:'water OR pipeline OR dam OR bridge OR tunnel'},
   {id:'pictures', name:'Pictures', color:'#f0d36a', icon:'camera', re:null, search:null},
   {id:'space', name:'Space', color:'#8fa8ff', icon:'space',
    re:/\b(space|nasa\b|orbit|satellite|moon\b|lunar|mars\b|rocket|astronaut|cosmonaut|space shuttle|planet|comet|spacecraft|soyuz|apollo|sputnik|voyager|hubble|asteroid)/i,
    search:'spaceflight OR satellite OR rocket OR NASA OR astronaut'},
+  {id:'exploration', name:'Exploration', color:'#6fa8a8', icon:'compass',
+   re:/\b(expeditions?\b|explorers?\b|exploration|first to reach|first ascent|everest|north pole|south pole|antarctic|arctic|circumnavigat|voyage|uncharted|transatlantic|transpacific)/i,
+   search:'expedition OR explorer OR Antarctic OR voyage'},
   {id:'medicine', name:'Medicine & Health', color:'#ef8fb4', icon:'med',
    re:/\b(medic|hospital|vaccin|disease|surg|virus|epidemic|pandemic|aids\b|hiv\b|transplant|penicillin|cancer|polio|health|physician|nurse|smallpox|cholera|plague|insulin)/i,
    search:'health OR medicine OR epidemic OR disease OR vaccine'},
+  {id:'nature', name:'Nature & Environment', color:'#3f9f5f', icon:'leaf',
+   re:/\b(environment|climate|national park|wildlife|conservation|endangered|extinct|pollution|oil spill|deforest|rainforest|ozone|species|nature reserve|zoo\b|whal|glacier|earth day)/i,
+   search:'environment OR wildlife OR "national park" OR conservation OR climate'},
   {id:'disaster', name:'Disasters', color:'#ff9a5c', icon:'disaster',
    re:/\b(earthquake|hurricane|typhoon|cyclone|tornado|crash|disaster|explosion|explode|fire\b|blaze|tsunami|erupt|sinks|sank|capsiz|derail|famine|flood|avalanche|collapse|shipwreck)/i,
    search:'earthquake OR hurricane OR disaster OR crash OR flood'},
-  {id:'culture', name:'Culture & Sport', color:'#c9a7f0', icon:'culture',
-   re:/\b(album|films?\b|movie|music|novel|painting|museum|premiere|broadway|songs?\b|olympic|championship|world cup|opera|theat|festival|cricket|football|baseball|basketball|chess|poet|artist)/i,
-   search:'film OR music OR art OR sport OR album'},
+  {id:'culture', name:'Arts & Culture', color:'#c9a7f0', icon:'culture',
+   re:/\b(album|films?\b|movie|music|novel|painting|museum|premiere|broadway|songs?\b|opera|theat|festival|poet|artist|sculpt|ballet|published|bestsell|comic|rock band|singer)/i,
+   search:'film OR music OR art OR album OR novel'},
+  {id:'sports', name:'Sports', color:'#9ad35a', icon:'ball',
+   re:/\b(olympic|championship|world cup|world series|super bowl|football|soccer|baseball|basketball|cricket|tennis|golf|boxing|marathon|athletes?\b|stadium|tournament|grand prix|wimbledon|tour de france|hockey|rugby|medal|chess|heavyweight|home run|world record)/i,
+   search:'sport OR championship OR Olympics OR tournament OR season'},
+  {id:'business', name:'Business & Economy', color:'#c2b280', icon:'chart',
+   re:/\b(compan(y|ies)\b|corporation|stock market|stock exchange|shares?\b|banks?\b|banking|econom|trade agreement|tariff|merger|acquires|bankrupt|currency|inflation|recession|great depression|industr|factory|labou?r strike|general strike|workers|dow jones|wall street|retail|brand)/i,
+   search:'company OR economy OR "stock market" OR bank OR trade'},
+  {id:'crime', name:'Crime & Justice', color:'#b07a6a', icon:'scales',
+   re:/\b(murder|assassinat|arrested|trial\b|convicted|sentenced|robbery|heist|kidnap|gangster|mafia|police|prison|supreme court|lawsuit|verdict|crimes?\b|criminal|serial killer|smuggl|hijack|fugitive)/i,
+   search:'murder OR trial OR court OR crime OR assassination'},
+  {id:'religion', name:'Religion', color:'#e6d7b8', icon:'temple',
+   re:/\b(church|pope|papal|vatican|cathedral|bishop|archbishop|religio|christian|catholic|protestant|muslim|islam|mosque|jewish|judaism|synagogue|hindu|buddhis|temple|saint\b|canoniz|monaster|pilgrim)/i,
+   search:'church OR pope OR religion OR temple OR cathedral'},
   {id:'world', name:'World & Politics', color:'#a3b0c2', icon:'globe', re:null,
    search:'election OR treaty OR summit OR protest'}
 ];
 const TOPIC = Object.fromEntries(TOPICS.map(t => [t.id, t]));
-/* Priority for classifying an event sentence */
-const CLASS_ORDER = ['space','medicine','electronics','war','plumbing','disaster','science','culture'];
+/* Priority for classifying an event sentence: the more specific topics get first pick */
+const CLASS_ORDER = ['space','medicine','electronics','exploration','war','sports','disaster','transport','crime','religion','nature',
+                     'plumbing','business','science','culture'];
 
 /* ================= utilities ================= */
 const $ = (s) => document.querySelector(s);
@@ -339,7 +409,13 @@ function monthIdx(name){ return MONTHS.findIndex(x => x.toLowerCase() === name.t
 const cache = new Map();
 function getJSON(url){
   if(cache.has(url)) return cache.get(url);
-  const p = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  // Wikimedia answers 429 when we ask too fast (e.g. spinning the dial); wait a moment and try again
+  const attempt = (n) => fetch(url).then(r => {
+    if(r.status === 429 && n < 3) return new Promise(res => setTimeout(res, 700 * (n + 1) + Math.random() * 400)).then(() => attempt(n + 1));
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  });
+  const p = attempt(0);
   cache.set(url, p); p.catch(() => cache.delete(url));
   return p;
 }
@@ -528,6 +604,7 @@ function renderHeader(){
     if(i===d) selEl = b;
   }
   if(selEl) requestAnimationFrame(() => { box.scrollLeft = selEl.offsetLeft - box.offsetLeft - box.clientWidth/2 + selEl.offsetWidth/2; });
+  radio.sync();
 }
 
 $('#yPrev').onclick = () => setDate(state.y-1, state.m, state.d);
@@ -633,6 +710,167 @@ $('#rAfter').addEventListener('blur', renderRange);
 $('#rAuto').addEventListener('change', e => setRange({auto: e.target.checked}));
 $('#rYear').addEventListener('change', e => setRange({year: e.target.checked}));
 document.addEventListener('pointerdown', e => { if(!rangePop.hidden && !e.target.closest('.rangewrap')) closeRange(); });
+
+/* ================= radio dial ================= */
+/* Two bands slide under a fixed needle like an old tuning scale: YEAR (1 tick a year) and DAY (1 tick a day of
+   the chosen year). Drag and let go to glide, it clicks onto the nearest mark, and only then is the date loaded.
+   Tapping a spot on a band tunes to it; the wheel, arrow keys and the knob work too. */
+const radio = (() => {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const INK = '#3a210f';
+  const doyDate = (y, n) => new Date(utc(y, 1, 1).getTime() + (n - 1) * 864e5);
+  function preview(y, m, d){ if(document.activeElement !== dateIn){ dateIn.value = `${MONTHS[m-1]} ${d}, ${y}`; fitDate(); } }
+
+  function band(el, o){
+    const cv = el.querySelector('canvas'), ctx = cv.getContext('2d');
+    let pos = o.value(), W = 0, H = 0, drag = null, anim = 0, vel = 0, snapTo = null, wheelT, commitT;
+
+    function size(){
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      W = cv.clientWidth; H = cv.clientHeight; if(!W) return;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+    function draw(){
+      if(!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const px = o.px, base = H - 3;
+      const lo = Math.max(o.min(), Math.floor(pos - W / 2 / px) - 2), hi = Math.min(o.max(), Math.ceil(pos + W / 2 / px) + 2);
+      ctx.fillStyle = INK;
+      ctx.globalAlpha = .5; ctx.fillRect(0, base, W, 1); ctx.globalAlpha = 1;
+      for(let v = lo; v <= hi; v++){
+        const x = Math.round(W / 2 + (v - pos) * px), t = o.tick(v);
+        ctx.globalAlpha = t.h > 6 ? .95 : .6;
+        ctx.fillRect(x, base - t.h, 1, t.h);
+        if(t.label){
+          ctx.globalAlpha = .9;
+          ctx.font = '600 10px "IBM Plex Mono", ui-monospace, monospace';
+          ctx.textAlign = t.left ? 'left' : 'center';
+          ctx.fillText(t.label, x + (t.left ? 4 : 0), t.left ? base - 3 : base - t.h - 3);
+        }
+      }
+      ctx.globalAlpha = 1;
+      const v = Math.round(pos);
+      el.setAttribute('aria-valuemax', o.max()); el.setAttribute('aria-valuenow', v); el.setAttribute('aria-valuetext', o.text(v));
+      if(o.turned) o.turned(pos);
+    }
+    function setPos(p){ pos = Math.max(o.min(), Math.min(o.max(), p)); draw(); o.preview(Math.round(pos)); }
+    function stop(){ cancelAnimationFrame(anim); anim = 0; }
+    // glide on whatever speed the drag left, then ease onto a mark and tune in
+    function settle(commit = true){
+      stop();
+      let last = performance.now();
+      const step = (now) => {
+        const dt = Math.min(40, now - last); last = now;
+        if(Math.abs(vel) > .002 && !still){
+          setPos(pos + vel * dt); vel *= Math.pow(.994, dt);
+          if(pos <= o.min() || pos >= o.max()) vel = 0;
+          anim = requestAnimationFrame(step); return;
+        }
+        vel = 0;
+        const target = snapTo ?? Math.round(pos), d = target - pos;
+        if(Math.abs(d) > .01 && !still){ setPos(pos + d * Math.min(1, dt * .018)); anim = requestAnimationFrame(step); return; }
+        anim = 0; snapTo = null; setPos(target);
+        if(commit){ clearTimeout(commitT); commitT = setTimeout(() => o.commit(target), 120); }
+      };
+      anim = requestAnimationFrame(step);
+    }
+    function goTo(v, commit = true){ snapTo = Math.max(o.min(), Math.min(o.max(), v)); vel = 0; settle(commit); }
+
+    el.addEventListener('pointerdown', e => {
+      if(e.button > 0) return;
+      stop(); clearTimeout(commitT);
+      el.setPointerCapture(e.pointerId); el.focus({preventScroll: true});
+      drag = {x: e.clientX, p: pos, lx: e.clientX, t: performance.now(), moved: 0};
+      vel = 0; el.classList.add('drag');
+    });
+    el.addEventListener('pointermove', e => {
+      if(!drag) return;
+      const now = performance.now(), dt = Math.max(1, now - drag.t);
+      vel = vel * .6 + (-(e.clientX - drag.lx) / o.px / dt) * .4;
+      drag.t = now; drag.lx = e.clientX; drag.moved = Math.max(drag.moved, Math.abs(e.clientX - drag.x));
+      setPos(drag.p - (e.clientX - drag.x) / o.px);
+    });
+    const release = (e) => {
+      if(!drag) return;
+      const d = drag; drag = null; el.classList.remove('drag');
+      if(d.moved < 4){   // a tap: tune to the mark under the finger
+        const r = cv.getBoundingClientRect();
+        if(e.clientX >= r.left) return goTo(Math.round(pos + (e.clientX - r.left - W / 2) / o.px));
+        return goTo(Math.round(pos));
+      }
+      if(performance.now() - d.t > 80) vel = 0;   // held still before letting go: no glide
+      const cap = 2 / o.px;                        // a hard flick glides about 330px of scale at most
+      vel = Math.max(-cap, Math.min(cap, vel));
+      settle();
+    };
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('wheel', e => {
+      e.preventDefault(); stop(); clearTimeout(commitT);
+      setPos(pos + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) / o.px * .35);
+      clearTimeout(wheelT); wheelT = setTimeout(() => settle(), 160);
+    }, {passive: false});
+    el.addEventListener('keydown', e => {
+      const n = Math.round(snapTo ?? pos), k = {ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1, PageDown: -o.page, PageUp: o.page}[e.key];
+      if(k){ e.preventDefault(); e.stopPropagation(); goTo(n + k); }
+      else if(e.key === 'Home' || e.key === 'End'){ e.preventDefault(); e.stopPropagation(); goTo(e.key === 'Home' ? o.min() : o.max()); }
+    });
+    new ResizeObserver(size).observe(cv);
+
+    return {
+      size, draw, stop, setPos, settle, get pos(){ return pos; },
+      // follow date changes made elsewhere, without tuning in again
+      sync(v){
+        if(drag || (anim && snapTo === v)) return;
+        if(Math.abs(v - pos) > 120 || still){ stop(); pos = v; draw(); return; }
+        if(Math.abs(v - pos) > .01) goTo(v, false); else draw();
+      }
+    };
+  }
+
+  const knobRot = $('#knob .rot');
+  const yearBand = band($('#bandYear'), {
+    px: 13, page: 10, min: () => 1, max: () => MAXY, value: () => state.y, text: String,
+    tick: (v) => v % 10 === 0 ? {h: 10, label: String(v)} : v % 5 === 0 ? {h: 7} : {h: 4},
+    preview: (v) => preview(v, state.m, Math.min(state.d, daysIn(v, state.m))),
+    commit: (v) => { if(v !== state.y){ stopPlay(); setDate(v, state.m, state.d); } },
+    turned: (p) => { knobRot.style.transform = `rotate(${(p * 12) % 360}deg)`; }
+  });
+  const dayBand = band($('#bandDay'), {
+    px: 6, page: 30, min: () => 1, max: () => dayOfYear(state.y, 12, 31), value: () => dayOfYear(state.y, state.m, state.d),
+    text: (v) => fmt(doyDate(state.y, v)),
+    tick: (v) => {
+      const dt = doyDate(state.y, v), d = dt.getUTCDate();
+      return d === 1 ? {h: 13, label: MON3[dt.getUTCMonth()].toUpperCase(), left: true} : d === 15 ? {h: 8} : d % 5 === 0 ? {h: 5} : {h: 3};
+    },
+    preview: (v) => { const dt = doyDate(state.y, v); preview(state.y, dt.getUTCMonth() + 1, dt.getUTCDate()); },
+    commit: (v) => {
+      const dt = doyDate(state.y, v), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
+      if(m !== state.m || d !== state.d){ stopPlay(); setDate(state.y, m, d); }
+    }
+  });
+
+  // the knob turns the year: 12° of turn per year, so a full turn is 30 years
+  const knob = $('#knob');
+  let kd = null;
+  const angle = (e) => { const r = knob.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)); };
+  knob.addEventListener('pointerdown', e => { yearBand.stop(); knob.setPointerCapture(e.pointerId); knob.classList.add('drag'); kd = {a: angle(e), p: yearBand.pos, turn: 0}; });
+  knob.addEventListener('pointermove', e => {
+    if(!kd) return;
+    const a = angle(e); let da = a - kd.a;
+    if(da > Math.PI) da -= 2 * Math.PI; else if(da < -Math.PI) da += 2 * Math.PI;   // unwrap across ±180°
+    kd.turn += da; kd.a = a;
+    yearBand.setPos(kd.p + kd.turn / (Math.PI / 15));
+  });
+  const knobUp = () => { if(!kd) return; kd = null; knob.classList.remove('drag'); yearBand.settle(); };
+  knob.addEventListener('pointerup', knobUp);
+  knob.addEventListener('pointercancel', knobUp);
+  knob.addEventListener('wheel', e => { e.preventDefault(); $('#bandYear').dispatchEvent(new WheelEvent('wheel', e)); }, {passive: false});
+
+  if(document.fonts) document.fonts.ready.then(() => { yearBand.draw(); dayBand.draw(); });
+  return { sync(){ yearBand.sync(state.y); dayBand.sync(dayOfYear(state.y, state.m, state.d)); } };
+})();
 
 let playTimer = null;
 function setPlayLabel(on){ $('#play').classList.toggle('on', on); $('#play b').textContent = on ? '❚❚' : '▶'; $('#play .lbl').textContent = on ? 'Following' : 'Follow'; }

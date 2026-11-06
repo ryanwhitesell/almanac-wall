@@ -102,6 +102,12 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .slider output{width:38px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text)}
 .fxpv{display:block;width:100%;height:46px;border-radius:6px;background:#07080b}
 .fxpv.stars{background:radial-gradient(circle at 20% 30%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 45% 80%,#cfd8ff 0 .8px,transparent 1.3px),radial-gradient(circle at 85% 20%,#fff 0 .8px,transparent 1.3px),linear-gradient(160deg,transparent 40%,rgba(255,255,255,.7) 48%,transparent 49%),#07080b;background-size:22px 18px,26px 22px,19px 23px,31px 17px,100% 100%}
+.fxpv.weather{background:radial-gradient(circle at 76% 32%,#fff6d6 0 6px,rgba(255,236,170,.6) 8px,transparent 16px),radial-gradient(ellipse 22% 26% at 34% 62%,#fff 0 55%,transparent 60%),radial-gradient(ellipse 18% 22% at 48% 55%,#fff 0 55%,transparent 60%),radial-gradient(ellipse 16% 18% at 22% 66%,#f2f5f8 0 55%,transparent 60%),linear-gradient(#3d7cc9,#9cc8f0)}
+#wx{position:fixed;left:12px;top:calc(max(10px,env(safe-area-inset-top)) + 58px);z-index:26;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;
+  background:rgba(16,18,21,.82);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:12.5px;color:var(--text)}
+#wx[hidden]{display:none}
+#wx button{width:24px;height:24px;border-radius:50%;border:0;background:var(--panel2);color:var(--muted);font-size:13px;line-height:1}
+#wx button:hover{color:var(--text)}
 .fxpv.galaxy{background:radial-gradient(ellipse 40% 22% at 55% 50%,rgba(255,226,180,.95),rgba(190,140,255,.45) 45%,rgba(80,120,255,.15) 75%,transparent 100%),#07080b}
 .wide{width:100%;height:38px;margin-bottom:12px;border-radius:10px;border:1px solid #6b2a26;background:#2a1513;color:#f3a097;font-size:13px}
 
@@ -146,6 +152,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 
 <div id="empty"><div><h3>Nothing pinned yet</h3>Open the wall, tap any panel, and choose <b>📌 Pin to board</b>. Pinned articles land here, ready to arrange and connect. You can also add circles right away.<br><a class="pill" href="index.html">← Go to the wall</a></div></div>
 <div id="hint" hidden></div>
+<div id="wx" hidden></div>
 <div id="toast" hidden></div>
 <div id="selbar" hidden></div>
 <div id="sheet" class="sheet" hidden></div>
@@ -637,7 +644,7 @@ function renderSheet(){
     sh.innerHTML = `<h5>Brightness</h5>` +
       `<label class="slider">Whole board<input type="range" min="25" max="100" step="1" data-look="bright" value="${Math.round(board.look.bright * 100)}"><output>${pct(board.look.bright)}</output></label>` +
       `<label class="slider">Background<input type="range" min="10" max="100" step="1" data-look="bgBright" value="${Math.round(board.look.bgBright * 100)}"><output>${pct(board.look.bgBright)}</output></label>` +
-      `<h5>Sky effects</h5><div class="opts three">` +
+      `<h5>Sky effects</h5><div class="opts">` +
       FX.map(x => `<button class="opt" data-fx="${x.id}" aria-pressed="${board.look.fx === x.id}"><span class="fxpv ${x.id}"></span>${x.name}</button>`).join('') +
       `</div><h5>Background</h5><div class="opts">` +
       BGS.map(b => `<button class="opt" data-bg="${b.id}" aria-pressed="${board.bg === b.id}"><span class="bgpv" style="background-color:${b.color};background-image:${b.image};background-size:${b.size}px ${b.size}px"></span>${b.name}</button>`).join('') +
@@ -668,11 +675,13 @@ $('#sheet').addEventListener('input', e => {
 function applyLook(){
   $('#dim').style.opacity = 1 - clamp(+board.look.bright || 1, .25, 1);
   $('#bgdim').style.opacity = 1 - clamp(+board.look.bgBright || 1, .1, 1);
-  sky.set(FX.some(x => x.id === board.look.fx) ? board.look.fx : 'none');
+  const fx = FX.some(x => x.id === board.look.fx) ? board.look.fx : 'none';
+  sky.set(fx);
+  if((fx === 'weather') !== !!wxTimer) weatherOn(fx === 'weather');
 }
 
 /* ================= sky effects: drifting, twinkling stars with shooting stars, or a turning galaxy ================= */
-const FX = [{id:'none', name:'None'}, {id:'stars', name:'Stars'}, {id:'galaxy', name:'Galaxy'}];
+const FX = [{id:'none', name:'None'}, {id:'stars', name:'Stars'}, {id:'galaxy', name:'Galaxy'}, {id:'weather', name:'Live weather'}];
 const sky = (() => {
   const cv = $('#fx'), ctx = cv.getContext('2d');
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -697,7 +706,100 @@ const sky = (() => {
                    s: .4 + Math.random() * (rr < .2 ? 1.6 : 1.2), c: `hsla(${hue},${rr < .18 ? 90 : 75}%,${rr < .18 ? 85 : 72}%,${.35 + Math.random() * .5})`});
       }
     }
+    if(mode === 'weather') buildWeather();
   }
+  /* ---- live weather: a sky painted from the current conditions where you are ---- */
+  let wx = null, clouds = [], drops = [], flakes = [], flash = 0, nextFlash = 0;
+  const SKIES = {   // [top, bottom] of the sky by day and by night
+    day:   {clear:['#3d7cc9','#9cc8f0'], partly:['#4a85c8','#a7cdef'], cloudy:['#5f6b78','#a3adb8'], fog:['#8e979f','#c9ced2'],
+            drizzle:['#5d6874','#97a1ab'], rain:['#4b5562','#86909b'], snow:['#8d9aa8','#d6dde4'], storm:['#262b35','#4f5663']},
+    night: {clear:['#050a1c','#1a2748'], partly:['#070c1e','#1d2840'], cloudy:['#0d1118','#232a35'], fog:['#1a1e24','#343a42'],
+            drizzle:['#0c1016','#20262f'], rain:['#0a0d13','#1c222b'], snow:['#151b26','#2c3443'], storm:['#07090d','#1a1e26']}
+  };
+  function cloudSprite(color){
+    const c = document.createElement('canvas'), w = 300, h = 140, g = c.getContext('2d');
+    c.width = w; c.height = h;
+    g.filter = 'blur(7px)'; g.fillStyle = color;
+    for(let i = 0; i < 8; i++){ g.beginPath(); g.arc(60 + Math.random() * 180, 70 + (Math.random() - .3) * 30, 26 + Math.random() * 26, 0, 6.283); g.fill(); }
+    g.fillRect(60, 80, 180, 26);
+    return c;
+  }
+  function buildWeather(){
+    clouds = []; drops = []; flakes = [];
+    if(!wx) return;
+    const k = wx.kind, area = W * H / (1280 * 800), night = !wx.day;
+    const shade = {clear:'#ffffff', partly:'#ffffff', cloudy:'#d3d9e0', fog:'#e3e7ea', drizzle:'#b7bec7', rain:'#a3abb5', snow:'#e9edf1', storm:'#6f7783'}[k];
+    const col = night ? {clear:'#4a5470', partly:'#4a5470', cloudy:'#3a414d', fog:'#4b525c', drizzle:'#343b46', rain:'#2e353f', snow:'#4c5462', storm:'#262b33'}[k] : shade;
+    const nC = Math.round(({clear:0, partly:4, cloudy:10, fog:4, drizzle:9, rain:10, snow:8, storm:11}[k]) * Math.max(.7, Math.min(1.6, area)));
+    const sprites = [cloudSprite(col), cloudSprite(col), cloudSprite(col)];
+    const windV = .008 + Math.min(40, wx.wind || 0) * .0012;
+    for(let i = 0; i < nC; i++) clouds.push({x: Math.random() * (W + 300) - 300, y: Math.random() * H * (k === 'partly' ? .45 : .6) - 30,
+      s: .7 + Math.random() * 1.1, v: windV * (.6 + Math.random() * .8), img: sprites[i % 3], a: k === 'partly' ? .85 : .92});
+    const nR = Math.round(({drizzle:140, rain:380, storm:520}[k] || 0) * Math.max(.5, area));
+    const slant = Math.min(.35, (wx.wind || 0) * .012);
+    for(let i = 0; i < nR; i++) drops.push({x: Math.random() * W, y: Math.random() * H, vy: (k === 'drizzle' ? .45 : .95) + Math.random() * .35, len: k === 'drizzle' ? 7 : 14 + Math.random() * 8, slant});
+    if(k === 'snow') for(let i = 0; i < Math.round(240 * Math.max(.5, area)); i++)
+      flakes.push({x: Math.random() * W, y: Math.random() * H, r: .8 + Math.random() * 2.2, vy: .02 + Math.random() * .05, ph: Math.random() * 6.3, drift: slant * .15});
+  }
+  function drawWeather(now, dt){
+    const k = wx ? wx.kind : 'clear', day = wx ? wx.day : (new Date().getHours() >= 7 && new Date().getHours() < 19);
+    const [top, bottom] = SKIES[day ? 'day' : 'night'][k];
+    const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, top); sky.addColorStop(1, bottom);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    const clearish = k === 'clear' || k === 'partly';
+    if(clearish && day){   // sun with a soft glow
+      const sx = W * .82, sy = H * .2, R = Math.min(W, H) * .38;
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+      g.addColorStop(0, 'rgba(255,244,200,.95)'); g.addColorStop(.12, 'rgba(255,236,170,.6)'); g.addColorStop(1, 'rgba(255,236,170,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff6d6'; ctx.beginPath(); ctx.arc(sx, sy, 26, 0, 6.283); ctx.fill();
+    }
+    if(clearish && !day){  // stars and the moon
+      ctx.globalCompositeOperation = 'lighter';
+      for(const s of stars){
+        ctx.globalAlpha = (.45 + .55 * Math.abs(Math.sin(now * .001 * s.sp + s.ph))) * (k === 'partly' ? .7 : 1);
+        ctx.fillStyle = s.c; ctx.fillRect(s.x, s.y, s.r, s.r);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      const mx = W * .8, my = H * .2, g = ctx.createRadialGradient(mx, my, 0, mx, my, 90);
+      g.addColorStop(0, 'rgba(240,236,220,.35)'); g.addColorStop(1, 'rgba(240,236,220,0)');
+      ctx.fillStyle = g; ctx.fillRect(mx - 90, my - 90, 180, 180);
+      ctx.fillStyle = '#f2eee0'; ctx.beginPath(); ctx.arc(mx, my, 20, 0, 6.283); ctx.fill();
+    }
+    for(const c of clouds){
+      if(!still){ c.x += c.v * dt; if(c.x > W + 40) c.x = -c.img.width * c.s; }
+      ctx.globalAlpha = c.a; ctx.drawImage(c.img, c.x, c.y, c.img.width * c.s, c.img.height * c.s);
+    }
+    ctx.globalAlpha = 1;
+    if(k === 'fog'){   // slow drifting haze bands
+      for(let i = 0; i < 4; i++){
+        const y = H * (.25 + i * .2) + Math.sin(now * .0002 + i) * 20, g = ctx.createLinearGradient(0, y - 60, 0, y + 60);
+        g.addColorStop(0, 'rgba(235,238,240,0)'); g.addColorStop(.5, `rgba(235,238,240,${day ? .45 : .18})`); g.addColorStop(1, 'rgba(235,238,240,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, y - 60, W, 120);
+      }
+    }
+    if(drops.length){
+      ctx.strokeStyle = day ? 'rgba(225,232,242,.55)' : 'rgba(170,185,205,.45)'; ctx.lineWidth = 1; ctx.beginPath();
+      for(const d of drops){
+        if(!still){ d.y += d.vy * dt; d.x += d.vy * d.slant * dt; if(d.y > H){ d.y = -d.len; d.x = Math.random() * W; } if(d.x > W) d.x -= W; }
+        ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.len * d.slant, d.y - d.len);
+      }
+      ctx.stroke();
+    }
+    if(flakes.length){
+      ctx.fillStyle = 'rgba(255,255,255,.88)';
+      for(const f of flakes){
+        if(!still){ f.y += f.vy * dt; f.x += (Math.sin(now * .001 + f.ph) * .02 + f.drift) * dt; if(f.y > H + 4){ f.y = -4; f.x = Math.random() * W; } if(f.x > W + 4) f.x = -4; }
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283); ctx.fill();
+      }
+    }
+    if(k === 'storm' && !still){   // lightning: a sudden flash that fades, sometimes twice
+      if(now > nextFlash){ flash = 1; nextFlash = now + (Math.random() < .3 ? 180 : 4000 + Math.random() * 8000); }
+      if(flash > .01){ ctx.fillStyle = `rgba(235,240,255,${flash * .55})`; ctx.fillRect(0, 0, W, H); flash *= Math.pow(.985, dt); }
+    }
+  }
+
   function shoot(now){
     const fromLeft = Math.random() < .5, ang = (fromLeft ? 1 : -1) * (.25 + Math.random() * .35);
     shots.push({x: fromLeft ? Math.random() * W * .6 : W * .4 + Math.random() * W * .6, y: Math.random() * H * .45,
@@ -706,6 +808,7 @@ const sky = (() => {
   }
   function draw(now){
     const dt = Math.min(50, now - (last || now)); last = now;
+    if(mode === 'weather') return drawWeather(now, dt);
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     for(const s of stars){
@@ -750,8 +853,62 @@ const sky = (() => {
     raf = requestAnimationFrame(loop);
   }
   window.addEventListener('resize', () => { if(mode !== 'none'){ build(); if(still) draw(performance.now()); } });
-  return {set};
+  function weather(w){ wx = w; if(mode === 'weather'){ buildWeather(); if(still) draw(performance.now()); } }
+  return {set, weather};
 })();
+
+/* ================= live weather where you are (Open-Meteo, no key needed) ================= */
+const WX_KEY = 'walmanac.weather', WX_TTL = 20 * 60e3;
+const WX_TEXT = {clear:'Clear', partly:'Partly cloudy', cloudy:'Overcast', fog:'Fog', drizzle:'Drizzle', rain:'Rain', snow:'Snow', storm:'Thunderstorm'};
+function wxKind(c){   // WMO weather codes
+  if(c === 0) return 'clear';
+  if(c <= 2) return 'partly';
+  if(c === 3) return 'cloudy';
+  if(c === 45 || c === 48) return 'fog';
+  if(c >= 51 && c <= 57) return 'drizzle';
+  if((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
+  if((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+  if(c >= 95) return 'storm';
+  return 'cloudy';
+}
+let wxTimer = 0, wxBusy = false;
+function wxBadge(html){ const b = $('#wx'); b.innerHTML = html; b.hidden = !html; }
+function showWx(w){
+  wxBadge(`<span>📍 ${w.temp}${esc(w.unit)} · ${esc(WX_TEXT[w.kind])}${w.day ? '' : ' · night'}</span><button title="Refresh the weather" aria-label="Refresh the weather">↻</button>`);
+  $('#wx button').onclick = () => loadWeather(true);
+}
+async function loadWeather(force){
+  if(wxBusy) return;
+  let w = readJSON(WX_KEY, null);
+  if(w && !w.kind) w = null;
+  if(w && !force && Date.now() - w.t < WX_TTL){ sky.weather(w); showWx(w); return; }
+  if(!navigator.geolocation){ wxBadge('<span>This browser can’t share a location</span>'); return; }
+  wxBusy = true;
+  if(!w) wxBadge('<span>Finding your local weather…</span>');
+  try{
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {maximumAge: 30 * 60e3, timeout: 15000}));
+    // two decimals (~1 km) is plenty for weather and keeps the exact spot private
+    const lat = pos.coords.latitude.toFixed(2), lon = pos.coords.longitude.toFixed(2);
+    const fahrenheit = /^en-US$/i.test(navigator.language || '');
+    const url = 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
+      latitude: lat, longitude: lon, current: 'temperature_2m,weather_code,is_day,wind_speed_10m', temperature_unit: fahrenheit ? 'fahrenheit' : 'celsius'
+    });
+    const r = await fetch(url); if(!r.ok) throw new Error('weather');
+    const cur = (await r.json()).current;
+    w = {t: Date.now(), kind: wxKind(cur.weather_code), temp: Math.round(cur.temperature_2m), unit: fahrenheit ? '°F' : '°C', day: !!cur.is_day, wind: cur.wind_speed_10m};
+    writeJSON(WX_KEY, w);
+    sky.weather(w); showWx(w);
+  }catch(e){
+    if(w){ sky.weather(w); showWx(w); }   // keep the last reading if a refresh fails
+    else { sky.weather(null); wxBadge(`<span>${e && e.code === 1 ? 'Location is blocked for this page, so showing a plain sky' : 'Couldn’t get the weather right now'}</span>`); }
+  }finally{ wxBusy = false; }
+}
+function weatherOn(on){
+  clearInterval(wxTimer); wxTimer = 0;
+  if(!on){ wxBadge(''); return; }
+  loadWeather(false);
+  wxTimer = setInterval(() => loadWeather(false), WX_TTL);
+}
 
 function updateLinePv(){ $('#linePv').innerHTML = linkParts({...board.def, color: 'currentColor', arrow: 'none'}, {x: 2, y: 15}, {x: 22, y: 9}, 0, 0, true).parts; }
 
