@@ -60,7 +60,17 @@ header{flex:none;padding:12px 16px 8px;border-bottom:1px solid var(--line);backg
 .sp-h{margin:0 0 8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
 .sp-slider{display:flex;align-items:center;gap:12px}
 .sp-slider input{flex:1;accent-color:var(--accent)}
-.sp-slider output{width:42px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text)}#dateSub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.sp-slider output{width:42px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text)}
+.sp-gap{margin-top:16px}
+.src-list{display:flex;flex-direction:column;gap:2px}
+.src-row{display:flex;align-items:flex-start;gap:10px;padding:7px 6px;border-radius:8px;cursor:pointer}
+.src-row:hover{background:var(--panel2)}
+.src-row input{accent-color:var(--accent);margin:3px 0 0}
+.src-row b{display:block;font-weight:500;font-size:13px;color:var(--text)}
+.src-row em{display:block;font-style:normal;font-size:11.5px;color:var(--dim);line-height:1.35;margin-top:1px}
+.src-row.off b{color:var(--muted)}
+.sp-note{margin:8px 0 0;font-size:11.5px;color:var(--dim);line-height:1.4}
+.setwrap .rangepop{max-height:min(70vh,560px);overflow:auto}#dateSub{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
 .cal{display:flex;align-items:center;gap:6px}
 .cal .mnav{background:none;border:1px solid var(--line);border-radius:8px;width:30px;height:44px;color:var(--muted);flex:none}
 .cal .mnav:hover{color:var(--text)}
@@ -170,7 +180,10 @@ header{flex:none;padding:12px 16px 8px;border-bottom:1px solid var(--line);backg
 body.gallery{background:#000}
 body.gallery header{background:#000;border-bottom-color:transparent;padding-bottom:4px}
 body.gallery .brand,body.gallery .yearctl,body.gallery #play,body.gallery #boardLink,body.gallery .cal,body.gallery .chips{display:none}
-body.gallery .row1{position:absolute;top:10px;right:12px;z-index:2}
+/* gallery header: the date on the left, brightness + Exit on the right; on a narrow screen the controls drop below the date */
+body.gallery header{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+body.gallery .dateline{order:1;flex:1 1 auto;min-width:0}
+body.gallery .row1{order:2;margin-left:auto;z-index:2}
 body.gallery .dateline{margin:2px 0 4px}
 body.gallery .rangewrap,body.gallery .radio{display:none}
 
@@ -201,6 +214,13 @@ body.gallery .rangewrap,body.gallery .radio{display:none}
 .knob.drag{cursor:grabbing}
 body.gallery #gallery{opacity:.45;transition:opacity .2s}
 body.gallery #gallery:hover{opacity:1}
+/* gallery brightness: only shown in gallery mode, faint until you reach for it */
+.gbright{display:none;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:14px;cursor:pointer;opacity:.45;transition:opacity .2s}
+.gbright:hover,.gbright:focus-within{opacity:1}
+.gbright input{width:110px;accent-color:var(--accent)}
+.gbright output{width:36px;font-family:var(--mono);font-size:11px;color:var(--text);text-align:right}
+body.gallery .gbright{display:flex}
+body.gallery #canvas{filter:brightness(var(--gb,1))}
 body.gallery #backdrop{display:none}
 body.gallery #board{overflow:hidden;cursor:default}
 body.gallery #canvas{background:none;perspective:1400px}
@@ -249,6 +269,7 @@ body.gallery #status:not(:has(.spin)){display:none}
     </div>
     <button id="play" class="pill" title="Advance one day every few seconds"><b>▶</b><span class="lbl">Follow</span></button>
     <button id="gallery" class="pill" title="Pictures only, full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">Gallery</span></button>
+    <label id="gBright" class="gbright" title="Picture brightness"><span aria-hidden="true">☀</span><input type="range" id="gbRange" min="30" max="130" step="5" aria-label="Gallery brightness"><output id="gbOut"></output></label>
     <a id="boardLink" class="pill" href="board.html" title="Your pinned articles"><b>📌</b><span class="lbl">Board</span><span id="pinCount"></span></a>
   </div>
   <div class="radio" id="radio">
@@ -280,6 +301,9 @@ body.gallery #status:not(:has(.spin)){display:none}
         <div class="sp-h">Tile size</div>
         <div class="rp-presets" id="tsPresets"><button data-ts="70">Small</button><button data-ts="100">Medium</button><button data-ts="130">Large</button><button data-ts="160">Extra large</button></div>
         <label class="sp-slider"><input type="range" id="tsRange" min="60" max="180" step="5" aria-label="Tile size"><output id="tsOut"></output></label>
+        <div class="sp-h sp-gap">Extra sources</div>
+        <div id="srcList" class="src-list"></div>
+        <p class="sp-note">Off unless you switch them on. Each shows up only for the years it covers.</p>
       </div>
     </div>
   </div>
@@ -333,7 +357,8 @@ const ICONS = {
   scales:'<path d="M12 3v18M8 21h8M4.5 7h15M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/>',
   temple:'<path d="M4 21h16M6 21V10l6-6 6 6v11M10 21v-5h4v5"/>',
   leaf:'<path d="M5 19C5 11 11 5 20 5c0 9-6 15-14 15M5 19l8.5-8.5"/>',
-  compass:'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'
+  compass:'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  paper:'<path d="M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2zM17 9h3v10a2 2 0 0 1-2 2M7 9h7M7 12h7M7 15h4"/>'
 };
 const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
 
@@ -355,6 +380,7 @@ const TOPICS = [
    re:/\b(plumb|water supply|sewer|sewage|pipelines?\b|pipes?\b|aqueduct|dams?\b|canal|reservoir|sanitation|waterworks|water main|irrigation|toilet|bridges?\b|tunnel|skyscraper|power station|power plant)/i,
    search:'water OR pipeline OR dam OR bridge OR tunnel'},
   {id:'pictures', name:'Pictures', color:'#f0d36a', icon:'camera', re:null, search:null},
+  {id:'press', name:'Front Pages', color:'#d8cfb8', icon:'paper', re:null, search:null},
   {id:'space', name:'Space', color:'#8fa8ff', icon:'space',
    re:/\b(space|nasa\b|orbit|satellite|moon\b|lunar|mars\b|rocket|astronaut|cosmonaut|space shuttle|planet|comet|spacecraft|soyuz|apollo|sputnik|voyager|hubble|asteroid)/i,
    search:'spaceflight OR satellite OR rocket OR NASA OR astronaut'},
@@ -554,9 +580,60 @@ async function commonsPics(y, m, d){
   return out.slice(0, 8);
 }
 
+/* ================= extra sources (optional, switched on in Settings) ================= */
+/* Each one returns 'news' items: {kind, topic, source, sourceNote, date, title, text, img, url}. They only run for the
+   years they cover, look within the chosen date range, and closest-to-the-date comes first. */
+const ymd = (dt) => dt.toISOString().slice(0, 10);
+const nearest = (list, target, n) => list.sort((a, b) => Math.abs(a.date - target) - Math.abs(b.date - target)).slice(0, n);
+const SOURCES = [
+  {id:'loc', name:'Historic newspapers', org:'Library of Congress', from:1770, to:1963,
+   about:'Front pages from Chronicling America', fetch: async (y, m, d, before, after) => {
+    const day = utc(y, m, d).getTime(), b = Math.min(before, 5), a = Math.min(after, 5);   // a tight window keeps the closest front pages in the first page of results
+    const url = 'https://www.loc.gov/collections/chronicling-america/?' + new URLSearchParams({
+      dates: `${ymd(new Date(day - b * 864e5))}/${ymd(new Date(day + a * 864e5))}`, fo:'json', at:'results', c:'24', st:'list', fa:'online-format:image'});
+    const j = await getJSON(url);
+    const out = (j.results || []).filter(r => /^\d{4}-\d{2}-\d{2}/.test(r.date || '')).map(r => {
+      const dt = parseDate(r.date), paper = String(r.title || '').replace(/,\s*[A-Z][a-z]+ \d{1,2}, \d{4}\s*$/, '');
+      const img = (r.image_url || [])[0] ? String(r.image_url[0]).replace(/#.*$/, '') : '';
+      return {id: 'loc:' + r.url, kind:'news', topic:'press', source:'Library of Congress', sourceNote:'Front page scan · Chronicling America, Library of Congress',
+        date: dt, title: paper, text: `Front page of ${paper}, ${fmt(dt)}.`, url: r.url,
+        img: img ? {thumb: img, large: img.replace('/pct:6.25/', '/pct:25/')} : null};
+    });
+    return nearest(out, day, 8);
+  }},
+  {id:'wikinews', name:'Wikinews', org:'Wikinews', from:2004, to:MAXY, about:'Citizen news reports, sorted into topics', fetch: async (y, m, d, before, after) => {
+    const day = utc(y, m, d).getTime(), days = [];
+    for(let k = -Math.min(before, 3); k <= Math.min(after, 3); k++) days.push(new Date(day + k * 864e5));   // a week at most: one request per day
+    const lists = await Promise.allSettled(days.map(async dt => {
+      const cat = `Category:${MONTHS[dt.getUTCMonth()]} ${dt.getUTCDate()}, ${dt.getUTCFullYear()}`;
+      const j = await getJSON('https://en.wikinews.org/w/api.php?' + new URLSearchParams({
+        action:'query', format:'json', origin:'*', generator:'categorymembers', gcmtitle:cat, gcmnamespace:'0', gcmlimit:'6',
+        prop:'extracts|pageimages|info', exintro:'1', explaintext:'1', exsentences:'3', exlimit:'max', piprop:'thumbnail', pithumbsize:'500', inprop:'url'}));
+      return Object.values(j.query?.pages || {}).map(p => {
+        const text = String(p.extract || '').replace(/^\s*\w+day, \w+ \d{1,2}, \d{4}\s*/, '').replace(/\s+/g, ' ').trim();
+        const thumb = p.thumbnail?.source ? p.thumbnail.source.replace(/\?.*$/, '') : '';
+        return {id: 'wn:' + p.pageid, kind:'news', topic: classify(`${p.title} ${text}`), source:'Wikinews', sourceNote:'Wikinews report',
+          date: dt, title: p.title, text, url: p.fullurl, img: thumb ? {thumb, large: thumb} : null};
+      });
+    }));
+    return nearest(lists.flatMap(r => r.status === 'fulfilled' ? r.value : []), day, 10);
+  }},
+  {id:'hn', name:'Hacker News', org:'Y Combinator', from:2006, to:MAXY, about:'The most-discussed tech stories, under Electronics & Tech', fetch: async (y, m, d, before, after) => {
+    const day = utc(y, m, d).getTime(), from = (day - Math.min(before, 7) * 864e5) / 1000, to = (day + (Math.min(after, 7) + 1) * 864e5) / 1000;
+    const j = await getJSON(`https://hn.algolia.com/api/v1/search?tags=story&hitsPerPage=8&numericFilters=created_at_i>${Math.floor(from)},created_at_i<${Math.floor(to)}`);
+    return (j.hits || []).map(h => {
+      const t = new Date(h.created_at), dt = utc(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+      let host = ''; try{ host = h.url ? new URL(h.url).hostname : ''; }catch(e){}
+      return {id: 'hn:' + h.objectID, kind:'news', topic:'electronics', source:'Hacker News', sourceNote: host ? `Linked from Hacker News · ${host}` : 'Hacker News discussion',
+        date: dt, title: h.title, text: `${h.points} points · ${h.num_comments || 0} comments on Hacker News.`,
+        url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`, img: null};
+    });
+  }}
+];
+
 /* ================= state ================= */
 const state = { y:1987, m:NOW.getMonth()+1, d:NOW.getDate(), off:new Set(), items:[], span:{before:7, after:7}, featured:null, gallery:false,
-  range: {auto:true, before:7, after:7, year:true}, tileScale: 1 };
+  range: {auto:true, before:7, after:7, year:true}, tileScale: 1, sources: new Set() };
 const RANGE_KEY = 'walmanac.range', RANGE_MAX = 60;
 try{
   const r = JSON.parse(localStorage.getItem(RANGE_KEY));
@@ -679,6 +756,7 @@ dateIn.addEventListener('blur', () => {
   else renderHeader();
 });
 if(document.fonts) document.fonts.ready.then(fitDate);
+window.addEventListener('resize', fitDate);   // the date's font size follows the window width, so re-measure it
 
 /* range: how many days before and after the chosen date to pull events and photos from */
 const rangePop = $('#rangePop'), rangeBtn = $('#rangeBtn');
@@ -749,9 +827,27 @@ function setTileScale(pct){
   cancelAnimationFrame(tsRaf); tsRaf = requestAnimationFrame(() => layout(false));   // re-lay the wall at most once a frame while sliding
 }
 function closeSettings(){ setPop.hidden = true; setBtn.setAttribute('aria-expanded', 'false'); }
-setBtn.onclick = () => { const open = setPop.hidden; setPop.hidden = !open; setBtn.setAttribute('aria-expanded', String(open)); if(open){ closeRange(); fitPop(setPop); } };
+setBtn.onclick = () => { const open = setPop.hidden; setPop.hidden = !open; setBtn.setAttribute('aria-expanded', String(open)); if(open){ closeRange(); renderSources(); fitPop(setPop); } };
 $('#tsRange').addEventListener('input', e => setTileScale(+e.target.value));
 $('#tsPresets').addEventListener('click', e => { const b = e.target.closest('[data-ts]'); if(b) setTileScale(+b.dataset.ts); });
+
+/* settings: which extra sources to pull from, remembered in this browser */
+const SRC_KEY = 'walmanac.sources';
+try{ const s = JSON.parse(localStorage.getItem(SRC_KEY)); if(Array.isArray(s)) state.sources = new Set(s.filter(id => SOURCES.some(x => x.id === id))); }catch(e){}
+function renderSources(){
+  $('#srcList').innerHTML = SOURCES.map(s => {
+    const covers = state.y >= s.from && state.y <= s.to;
+    return `<label class="src-row${covers ? '' : ' off'}"><input type="checkbox" data-src="${s.id}"${state.sources.has(s.id) ? ' checked' : ''}>` +
+      `<span><b>${esc(s.name)}</b><em>${s.from}–${s.to === MAXY ? 'today' : s.to} · ${esc(s.about)}${covers ? '' : ` · not for ${state.y}`}</em></span></label>`;
+  }).join('');
+}
+let srcT;
+$('#srcList').addEventListener('change', e => {
+  const id = e.target.dataset.src; if(!id) return;
+  e.target.checked ? state.sources.add(id) : state.sources.delete(id);
+  try{ localStorage.setItem(SRC_KEY, JSON.stringify([...state.sources])); }catch(err){}
+  clearTimeout(srcT); srcT = setTimeout(load, 400);   // ticking a few boxes in a row reloads once
+});
 
 /* ================= radio dial ================= */
 /* Two bands slide under a fixed needle like an old tuning scale: YEAR (1 tick a year) and DAY (1 tick a day of
@@ -923,6 +1019,17 @@ $('#play').onclick = () => {
   playTimer = setInterval(() => stepDay(1), 7000);
 };
 
+/* gallery brightness, 30–130%, remembered in this browser */
+const GB_KEY = 'walmanac.galleryBright';
+function setGalleryBright(pct){
+  pct = Math.max(30, Math.min(130, Math.round(pct / 5) * 5));
+  document.body.style.setProperty('--gb', pct / 100);
+  $('#gbRange').value = pct; $('#gbOut').textContent = pct + '%';
+  try{ localStorage.setItem(GB_KEY, String(pct)); }catch(e){}
+}
+$('#gbRange').addEventListener('input', e => setGalleryBright(+e.target.value));
+try{ setGalleryBright(+localStorage.getItem(GB_KEY) || 100); }catch(e){ setGalleryBright(100); }
+
 function setGallery(on){
   if(state.gallery === on) return;
   state.gallery = on;
@@ -980,7 +1087,12 @@ async function load(){
   })();
   const pYear = rg.year ? Promise.allSettled(TOPICS.filter(t => t.search).map(t => yearTopic(y, t))) : Promise.resolve([]);
   const pPics = commonsPics(y, m, d).catch(() => []);
+  // extra sources look at the same window as the events (auto range counts as a week either side)
+  const rb = rg.auto ? 7 : rg.before, ra = rg.auto ? 7 : rg.after;
+  const extras = SOURCES.filter(s => state.sources.has(s.id) && y >= s.from && y <= s.to);
+  const pExtra = Promise.allSettled(extras.map(s => s.fetch(y, m, d, rb, ra)));
 
+  // the wall goes up as soon as Wikipedia answers; extra sources (some are slow) join it when they arrive
   const [rn, ry, rp] = await Promise.allSettled([pNear, pYear, pPics]);
   if(my !== token) return;
 
@@ -1027,19 +1139,40 @@ async function load(){
   renderChips();
   layout(true);
 
-  const empty = $('#empty');
-  if(!state.items.length){
-    empty.style.display = 'flex';
-    empty.innerHTML = rn.status === 'rejected'
-      ? `<div><h3>Can't reach Wikipedia</h3>This wall loads live articles and pictures, so it needs an internet connection. Check your connection and pick a date again.</div>`
-      : `<div><h3>A quiet stretch</h3>Nothing recorded near this date for ${y}. Try another year or month.</div>`;
-    setStatus(rn.status === 'rejected' ? 'Offline or blocked' : 'No panels found');
-  } else {
+  let extraCount = 0;
+  const extraFailed = [];
+  const showStatus = (waiting) => {
+    const empty = $('#empty');
+    if(!state.items.length){
+      if(waiting){ empty.style.display = 'none'; setStatus(`Checking ${esc(extras.map(s => s.name).join(', '))}…`, true); return; }
+      empty.style.display = 'flex';
+      empty.innerHTML = rn.status === 'rejected'
+        ? `<div><h3>Can't reach Wikipedia</h3>This wall loads live articles and pictures, so it needs an internet connection. Check your connection and pick a date again.</div>`
+        : `<div><h3>A quiet stretch</h3>Nothing recorded near this date for ${y}. Try another year or month.</div>`;
+      setStatus(rn.status === 'rejected' ? 'Offline or blocked' : 'No panels found');
+      return;
+    }
     empty.style.display = 'none';
     const day = utc(y, m, d).getTime(), s = state.span;
     const span = s.before || s.after ? `${fmtShort(new Date(day - s.before*864e5))} – ${fmtShort(new Date(day + s.after*864e5))}` : 'this day only';
-    setStatus(`${state.items.length} panels · events ${span}${rg.year ? ` + highlights of ${y}` : ''} · drag to pan, tap for sources`);
+    const extra = waiting ? ` · still checking ${esc(extras.map(s => s.name).join(', '))}…`
+      : (extraCount ? ` + ${extraCount} from extra sources` : '') + (extraFailed.length ? ` (${esc(extraFailed.join(', '))} didn’t answer)` : '');
+    setStatus(`${state.items.length} panels · events ${span}${rg.year ? ` + highlights of ${y}` : ''}${extra} · drag to pan, tap for sources`, waiting);
+  };
+  showStatus(extras.length > 0);
+  if(!extras.length) return;
+
+  const rx = await pExtra;
+  if(my !== token) return;
+  rx.forEach((r, i) => {
+    if(r.status !== 'fulfilled'){ extraFailed.push(extras[i].name); return; }
+    for(const it of r.value){ if(!it.date) continue; (byTopic[it.topic] ||= []).push(it); extraCount++; }
+  });
+  if(extraCount){
+    state.items = TOPICS.flatMap(t => byTopic[t.id] || []);
+    renderChips(); layout(false);
   }
+  showStatus(false);
 }
 
 /* ================= wall layout ================= */
@@ -1116,6 +1249,7 @@ function tileText(it){
     label: it.offset === 0 ? `${fmtShort(it.date)} · this day` : `${fmtShort(it.date)} · ${Math.abs(it.offset)}d ${it.offset < 0 ? 'before' : 'after'}`,
     headline: it.text };
   if(it.kind === 'year') return {label: `${state.y} · from the year`, headline: it.title};
+  if(it.kind === 'news') return {label: `${fmtShort(it.date)} · ${it.source}`, headline: it.title};
   return {label: it.date ? `${fmtShort(it.date)} · photo` : `${state.y} · photo`, headline: it.title};
 }
 
@@ -1211,7 +1345,7 @@ function tileEl(it, x, y, w, h, rot, featured, order, animate){
   el.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;--r:${rot}deg;--c:${t.color};transition-delay:${animate ? Math.min(order*35, 900) : 0}ms`;
 
   const {label, headline} = tileText(it);
-  const sub = it.kind === 'year' && (!it.img || h > 230) ? it.text : '';
+  const sub = (it.kind === 'year' || it.kind === 'news') && (!it.img || h > 230) ? it.text : '';
   const src = it.img ? (featured || w > 300 ? it.img.large : it.img.thumb) : '';
   el.innerHTML =
     (src ? `<img alt="" draggable="false" loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(src)}">` : '') +
@@ -1283,7 +1417,7 @@ function togglePin(it){
       id: it.id, kind: it.kind, topic: t.name, color: t.color,
       label: it.date ? fmt(it.date) : String(state.y), title: tileText(it).headline,
       img: it.img ? it.img.thumb : '',
-      url: it.kind === 'pic' ? it.fileUrl : (it.pages[0]?.url || it.dayPage),
+      url: it.kind === 'pic' ? it.fileUrl : it.kind === 'news' ? it.url : (it.pages[0]?.url || it.dayPage),
       wall: `${state.y}-${pad2(state.m)}-${pad2(state.d)}`
     });
   }
@@ -1299,6 +1433,7 @@ function openItem(it){
   if(it.img){
     let cap;
     if(it.kind === 'pic') cap = `Wikimedia Commons · <a href="${esc(it.fileUrl)}" target="_blank" rel="noopener noreferrer">${esc(it.fileName.replace(/^File:/,''))}</a>`;
+    else if(it.kind === 'news') cap = esc(it.sourceNote);
     else if(it.img.file) cap = `Image: <a href="https://en.wikipedia.org/wiki/File:${esc(it.img.file)}" target="_blank" rel="noopener noreferrer">${esc(prettyFile(it.img.file))}</a> — author and license on the file page`;
     else cap = 'Image from the linked Wikipedia article';
     html += `<figure class="dfig"><img alt="" referrerpolicy="no-referrer" src="${esc(it.img.large)}" onerror="this.parentNode.remove()"><figcaption>${cap}</figcaption></figure>`;
@@ -1318,6 +1453,11 @@ function openItem(it){
     if(it.text) html += `<p class="lead">${esc(it.text)}</p>`;
     html += `<h4>Source</h4>` + srcCard({...it.pages[0], extract:''}, t.color);
     html += `<p class="note">Found by searching Wikipedia for ${state.y} articles about ${esc(t.name.toLowerCase())}. It may not fall on this exact date — open the article to see when it happened.</p>`;
+  } else if(it.kind === 'news'){
+    html += `<div class="dmeta">${chip}<span>${esc(fmt(it.date))}</span><span>· via ${esc(it.source)}</span></div>`;
+    html += `<h2>${esc(it.title)}</h2>`;
+    if(it.text) html += `<p class="lead">${esc(it.text)}</p>`;
+    html += `<h4>Source</h4>` + srcCard({title: it.title, desc: it.sourceNote, url: it.url, thumb: it.img ? it.img.thumb : ''}, t.color);
   } else {
     html += `<div class="dmeta">${chip}<span>${it.date ? esc(fmt(it.date)) : 'Date not recorded'}</span></div>`;
     html += `<h2>${esc(it.title)}</h2>`;

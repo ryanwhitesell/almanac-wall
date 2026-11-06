@@ -102,6 +102,14 @@ header{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:c
 .slider output{width:38px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text)}
 .fxpv{display:block;width:100%;height:46px;border-radius:6px;background:#07080b}
 .fxpv.stars{background:radial-gradient(circle at 20% 30%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 45% 80%,#cfd8ff 0 .8px,transparent 1.3px),radial-gradient(circle at 85% 20%,#fff 0 .8px,transparent 1.3px),linear-gradient(160deg,transparent 40%,rgba(255,255,255,.7) 48%,transparent 49%),#07080b;background-size:22px 18px,26px 22px,19px 23px,31px 17px,100% 100%}
+.fxpv.matrix{display:flex;align-items:center;justify-content:space-around;padding:0 6px;background:#010503;color:#3cff6e;font:600 10px/1.05 var(--mono);text-shadow:0 0 4px #1aff55;white-space:pre}
+.fxpv.matrix::before{content:'1\A 7\A 0';opacity:.55}
+.fxpv.matrix::after{content:'4\A 9\A 2';opacity:.9}
+.fxpv.emo{display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1}
+.tod{display:flex;align-items:center;gap:6px;margin:-4px 0 14px;font-size:12px;color:var(--muted)}
+.tod span{margin-right:4px}
+.tod button{height:28px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--muted)}
+.tod button[aria-pressed="true"]{border-color:var(--accent);color:var(--text)}
 .fxpv.weather{background:radial-gradient(circle at 76% 32%,#fff6d6 0 6px,rgba(255,236,170,.6) 8px,transparent 16px),radial-gradient(ellipse 22% 26% at 34% 62%,#fff 0 55%,transparent 60%),radial-gradient(ellipse 18% 22% at 48% 55%,#fff 0 55%,transparent 60%),radial-gradient(ellipse 16% 18% at 22% 66%,#f2f5f8 0 55%,transparent 60%),linear-gradient(#3d7cc9,#9cc8f0)}
 #wx{position:fixed;left:12px;top:calc(max(10px,env(safe-area-inset-top)) + 58px);z-index:26;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;
   background:rgba(16,18,21,.82);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:12.5px;color:var(--text)}
@@ -222,7 +230,7 @@ const board = {
   bg: BGS.some(b => b.id === saved.bg) ? saved.bg : 'cork',
   def: Object.assign({style:'string', color:'#c0282d', arrow:'none'}, saved.def),
   noteDef: Object.assign({d:84, color:'#e8b04a'}, saved.noteDef),
-  look: Object.assign({fx:'none', bright:1, bgBright:1}, saved.look),
+  look: Object.assign({fx:'none', bright:1, bgBright:1, tod:'auto'}, saved.look),
   top: saved.top || 0
 };
 let view = saved.view && isFinite(saved.view.z) ? saved.view : null;
@@ -646,11 +654,18 @@ function renderSheet(){
       `<label class="slider">Background<input type="range" min="10" max="100" step="1" data-look="bgBright" value="${Math.round(board.look.bgBright * 100)}"><output>${pct(board.look.bgBright)}</output></label>` +
       `<h5>Sky effects</h5><div class="opts">` +
       FX.map(x => `<button class="opt" data-fx="${x.id}" aria-pressed="${board.look.fx === x.id}"><span class="fxpv ${x.id}"></span>${x.name}</button>`).join('') +
+      `</div><h5>Weather</h5><div class="opts">` + WX_PICK.map(sceneOpt).join('') +
+      `</div><div class="tod"><span>Time of day</span>` +
+      [['auto','Auto'], ['day','Day'], ['night','Night']].map(([id, n]) => `<button data-tod="${id}" aria-pressed="${board.look.tod === id}">${n}</button>`).join('') +
+      `</div><h5>Disasters</h5><div class="opts">` + DISASTERS.map(sceneOpt).join('') +
       `</div><h5>Background</h5><div class="opts">` +
       BGS.map(b => `<button class="opt" data-bg="${b.id}" aria-pressed="${board.bg === b.id}"><span class="bgpv" style="background-color:${b.color};background-image:${b.image};background-size:${b.size}px ${b.size}px"></span>${b.name}</button>`).join('') +
       `</div>`;
   }
   sh.hidden = false;
+}
+function sceneOpt(x){
+  return `<button class="opt" data-fx="wx-${x.id}" aria-pressed="${board.look.fx === 'wx-' + x.id}"><span class="fxpv emo" style="background:linear-gradient(${x.bg})">${x.e}</span>${x.name}</button>`;
 }
 $('#sheet').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
@@ -660,6 +675,7 @@ $('#sheet').addEventListener('click', e => {
   else if(b.dataset.arrow) cur.arrow = b.dataset.arrow;
   else if(b.dataset.bg){ board.bg = b.dataset.bg; applyView(); }
   else if(b.dataset.fx){ board.look.fx = b.dataset.fx; applyLook(); }
+  else if(b.dataset.tod){ board.look.tod = b.dataset.tod; applyLook(); }
   else if(b.dataset.act === 'dellink' && L){ board.links = board.links.filter(l => l !== L); ui.link = null; closeSheet(); }
   if(L) Object.assign(board.def, {style: L.style, color: L.color, arrow: L.arrow});   // the last look you picked becomes the default
   renderLinks(); renderSheet(); updateLinePv(); save();
@@ -672,16 +688,38 @@ $('#sheet').addEventListener('input', e => {
   e.target.nextElementSibling.textContent = e.target.value + '%';
   applyLook(); save();
 });
+let lookKey = '';
 function applyLook(){
   $('#dim').style.opacity = 1 - clamp(+board.look.bright || 1, .25, 1);
   $('#bgdim').style.opacity = 1 - clamp(+board.look.bgBright || 1, .1, 1);
-  const fx = FX.some(x => x.id === board.look.fx) ? board.look.fx : 'none';
-  sky.set(fx);
+  const picked = pickedKind(board.look.fx);
+  const fx = picked ? board.look.fx : FX.some(x => x.id === board.look.fx) ? board.look.fx : 'none';
+  if(fx + board.look.tod === lookKey) return;   // brightness sliders alone don't rebuild the scene
+  lookKey = fx + board.look.tod;
+  if(picked){ sky.set('weather'); sky.weather(pickedWx(picked)); }
+  else sky.set(fx);
   if((fx === 'weather') !== !!wxTimer) weatherOn(fx === 'weather');
 }
 
 /* ================= sky effects: drifting, twinkling stars with shooting stars, or a turning galaxy ================= */
-const FX = [{id:'none', name:'None'}, {id:'stars', name:'Stars'}, {id:'galaxy', name:'Galaxy'}, {id:'weather', name:'Live weather'}];
+const FX = [{id:'none', name:'None'}, {id:'stars', name:'Stars'}, {id:'galaxy', name:'Galaxy'}, {id:'matrix', name:'Matrix'}, {id:'weather', name:'Live weather'}];
+// scenes you can pick by hand; each is the weather engine with a fixed kind (preview colours are the daytime sky)
+const WX_PICK = [
+  {id:'clear', name:'Sunny', e:'☀️', bg:'#3d7cc9,#9cc8f0'}, {id:'cloudy', name:'Cloudy', e:'☁️', bg:'#5f6b78,#a3adb8'},
+  {id:'rain', name:'Rain', e:'🌧️', bg:'#4b5562,#86909b'}, {id:'snow', name:'Snow', e:'🌨️', bg:'#8d9aa8,#d6dde4'},
+  {id:'storm', name:'Thunderstorm', e:'⛈️', bg:'#262b35,#4f5663'}, {id:'fog', name:'Fog', e:'🌫️', bg:'#8e979f,#c9ced2'}
+];
+const DISASTERS = [
+  {id:'tornado', name:'Tornado', e:'🌪️', bg:'#33403a,#8a9585'}, {id:'hurricane', name:'Hurricane', e:'🌀', bg:'#283038,#56616b'},
+  {id:'blizzard', name:'Blizzard', e:'❄️', bg:'#b4bec8,#e6ebef'}, {id:'dust', name:'Dust storm', e:'🏜️', bg:'#9c6a34,#e0b070'},
+  {id:'wildfire', name:'Wildfire', e:'🔥', bg:'#4e3328,#e0763a'}, {id:'volcano', name:'Volcano', e:'🌋', bg:'#3a3436,#8a6450'}
+];
+const WX_WIND = {clear:8, cloudy:15, rain:18, snow:8, storm:30, fog:3, tornado:40, hurricane:120, blizzard:60, dust:50, wildfire:10, volcano:10};
+const pickedKind = (fx) => /^wx-/.test(fx) && [...WX_PICK, ...DISASTERS].some(x => x.id === fx.slice(3)) ? fx.slice(3) : null;
+function pickedWx(kind){
+  const tod = board.look.tod, h = new Date().getHours();
+  return {kind, wind: WX_WIND[kind], day: tod === 'day' ? true : tod === 'night' ? false : h >= 7 && h < 19};
+}
 const sky = (() => {
   const cv = $('#fx'), ctx = cv.getContext('2d');
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -707,39 +745,254 @@ const sky = (() => {
       }
     }
     if(mode === 'weather') buildWeather();
+    if(mode === 'matrix') buildMatrix();
   }
-  /* ---- live weather: a sky painted from the current conditions where you are ---- */
-  let wx = null, clouds = [], drops = [], flakes = [], flash = 0, nextFlash = 0;
+
+  /* ---- Matrix: columns of green numbers raining down, each with a bright leading digit and a fading tail ---- */
+  let mcols = [], MF = 16;
+  function buildMatrix(){
+    MF = W < 600 ? 14 : 16;
+    mcols = Array.from({length: Math.ceil(W / MF)}, () => ({y: -Math.random() * H, v: .06 + Math.random() * .16, row: -1}));
+    ctx.fillStyle = '#010503'; ctx.fillRect(0, 0, W, H);
+    if(still){   // no motion: one frozen screenful
+      ctx.font = `600 ${MF}px "IBM Plex Mono", ui-monospace, monospace`; ctx.textBaseline = 'top';
+      mcols.forEach((c, i) => { for(let r = 0; r < H / MF; r++) if(Math.random() < .35){ ctx.fillStyle = `rgba(60,255,110,${.15 + Math.random() * .6})`; ctx.fillText(String(Math.random() * 10 | 0), i * MF, r * MF); } });
+    }
+  }
+  function drawMatrix(dt){
+    if(still) return;
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    // older digits fade into the dark (strong enough that faint ghosts don't pile up)
+    ctx.fillStyle = `rgba(1,5,3,${Math.max(.07, Math.min(.3, .09 * dt / 16))})`; ctx.fillRect(0, 0, W, H);
+    ctx.font = `600 ${MF}px "IBM Plex Mono", ui-monospace, monospace`; ctx.textBaseline = 'top';
+    mcols.forEach((c, i) => {
+      c.y += c.v * dt;
+      const row = Math.floor(c.y / MF);
+      if(row === c.row) return;
+      const x = i * MF;
+      if(c.row >= 0){ ctx.fillStyle = '#21d45a'; ctx.fillText(String(Math.random() * 10 | 0), x, c.row * MF); }   // the old head turns green
+      c.row = row;
+      if(row >= 0){
+        ctx.fillStyle = '#010503'; ctx.fillRect(x, row * MF, MF, MF);
+        ctx.shadowColor = '#5dff8a'; ctx.shadowBlur = 8; ctx.fillStyle = '#d9ffe3';
+        ctx.fillText(String(Math.random() * 10 | 0), x, row * MF);
+        ctx.shadowBlur = 0;
+      }
+      if(row * MF > H && Math.random() < .03){ c.y = -Math.random() * H * .3; c.row = -1; c.v = .06 + Math.random() * .16; }
+    });
+  }
+  /* ---- weather: live conditions where you are, or a scene you pick, including severe weather and disasters ---- */
+  let wx = null, clouds = [], drops = [], flakes = [], parts = [], smoke = [], flash = 0, nextFlash = 0, bolt = null;
+  let haze = [], strikes = [], nextStrike = 0;
   const SKIES = {   // [top, bottom] of the sky by day and by night
     day:   {clear:['#3d7cc9','#9cc8f0'], partly:['#4a85c8','#a7cdef'], cloudy:['#5f6b78','#a3adb8'], fog:['#8e979f','#c9ced2'],
-            drizzle:['#5d6874','#97a1ab'], rain:['#4b5562','#86909b'], snow:['#8d9aa8','#d6dde4'], storm:['#262b35','#4f5663']},
+            drizzle:['#5d6874','#97a1ab'], rain:['#4b5562','#86909b'], snow:['#8d9aa8','#d6dde4'], storm:['#151a20','#353c45'],
+            tornado:['#33403a','#8a9585'], hurricane:['#283038','#56616b'], blizzard:['#b4bec8','#e6ebef'], dust:['#9c6a34','#e0b070'],
+            wildfire:['#4e3328','#e0763a'], volcano:['#3a3436','#8a6450']},
     night: {clear:['#050a1c','#1a2748'], partly:['#070c1e','#1d2840'], cloudy:['#0d1118','#232a35'], fog:['#1a1e24','#343a42'],
-            drizzle:['#0c1016','#20262f'], rain:['#0a0d13','#1c222b'], snow:['#151b26','#2c3443'], storm:['#07090d','#1a1e26']}
+            drizzle:['#0c1016','#20262f'], rain:['#0a0d13','#1c222b'], snow:['#151b26','#2c3443'], storm:['#030406','#10141a'],
+            tornado:['#0c1210','#28322d'], hurricane:['#06080b','#1a2027'], blizzard:['#283240','#566170'], dust:['#2a1b0e','#5a3a1c'],
+            wildfire:['#100605','#8a2c0e'], volcano:['#0a0708','#3e1a10']}
   };
-  function cloudSprite(color){
-    const c = document.createElement('canvas'), w = 300, h = 140, g = c.getContext('2d');
-    c.width = w; c.height = h;
-    g.filter = 'blur(7px)'; g.fillStyle = color;
-    for(let i = 0; i < 8; i++){ g.beginPath(); g.arc(60 + Math.random() * 180, 70 + (Math.random() - .3) * 30, 26 + Math.random() * 26, 0, 6.283); g.fill(); }
-    g.fillRect(60, 80, 180, 26);
+  // cloud colour by day / by night, how many clouds, and how high they sit (fraction of the screen)
+  const CLOUD = {
+    clear:['#ffffff','#4a5470',0,.6], partly:['#ffffff','#4a5470',4,.45], cloudy:['#d3d9e0','#3a414d',10,.6], fog:['#e3e7ea','#4b525c',4,.6],
+    drizzle:['#b7bec7','#343b46',9,.6], rain:['#a3abb5','#2e353f',10,.6], snow:['#e9edf1','#4c5462',8,.6], storm:['#3b424c','#12161b',15,.5],
+    tornado:['#55605a','#1e2522',13,.28], hurricane:['#59616b','#1f252c',15,.5], blizzard:['#f0f3f6','#6a7482',9,.5],
+    dust:['#d9a866','#5a3a1c',0,.5], wildfire:['#6b5a52','#2a1a14',0,.5], volcano:['#4a4446','#1c1618',0,.5]
+  };
+  const R = Math.random;
+  /* Clouds: a shape built from a hundred-odd soft puffs (billowing up top, flatter underneath), long thin wisps
+     trailing off the ends, and soft holes punched through so the edges fray. That shape is then coloured twice:
+     once lit from above and shaded below, and once as a pale glow used when lightning lights it from inside. */
+  const mkCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  function softDot(g, x, y, r, a){
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(.6, `rgba(255,255,255,${a * .35})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  function cloudShape(){
+    const c = mkCanvas(560, 240), g = c.getContext('2d'), cx = 280, cy = 140, rx = 210, ry = 66;
+    for(let i = 0; i < 95; i++){
+      const a = R() * 6.283, d = Math.sqrt(R()), up = Math.sin(a) < 0;
+      const x = cx + Math.cos(a) * rx * d * (.85 + R() * .3), y = cy + Math.sin(a) * ry * d * (up ? 1.2 : .5);
+      softDot(g, x, y, (34 + R() * 52) * (1.1 - d * .55), .13 + R() * .09);
+    }
+    for(let i = 0; i < 30; i++){   // wisps
+      const side = R() < .5 ? -1 : 1, x = cx + side * rx * (.45 + R() * .65), y = cy + (R() - .25) * ry;
+      const len = 50 + R() * 140;
+      g.save(); g.translate(x, y); g.rotate((R() - .5) * .3); g.scale(1, (3 + R() * 8) / len);
+      softDot(g, 0, 0, len, .1 + R() * .1); g.restore();
+    }
+    g.globalCompositeOperation = 'destination-out';   // fray the edges and thin the body
+    for(let i = 0; i < 36; i++){
+      const a = R() * 6.283, d = .5 + R() * .7;
+      softDot(g, cx + Math.cos(a) * rx * d, cy + Math.sin(a) * ry * d, 20 + R() * 34, .2 + R() * .2);
+    }
     return c;
   }
+  function shiftHex(hex, amt){   // amt > 0 toward white, < 0 toward black
+    const n = parseInt(hex.slice(1), 16), ch = [n >> 16, n >> 8 & 255, n & 255].map(v => Math.round(amt > 0 ? v + (255 - v) * amt : v * (1 + amt)));
+    return `rgb(${ch.join(',')})`;
+  }
+  function tint(shape, top, bottom){
+    const c = mkCanvas(shape.width, shape.height), g = c.getContext('2d');
+    g.filter = 'blur(3px)'; g.drawImage(shape, 0, 0); g.filter = 'none';   // melts the puffs together, no speckle
+    g.globalCompositeOperation = 'source-in';
+    const gr = g.createLinearGradient(0, 60, 0, 200); gr.addColorStop(0, top); gr.addColorStop(1, bottom);
+    g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  function cloudSprite(color){
+    const shape = cloudShape(), img = tint(shape, shiftHex(color, .22), shiftHex(color, -.3));
+    img.lit = tint(shape, '#eef2ff', '#b4c2ff');
+    return img;
+  }
+  function hazeSprite(color){
+    const c = document.createElement('canvas'), g = c.getContext('2d');
+    c.width = 700; c.height = 160;
+    g.filter = 'blur(22px)'; g.fillStyle = color;
+    for(let i = 0; i < 6; i++){ g.beginPath(); g.ellipse(80 + R() * 540, 80 + (R() - .5) * 30, 90 + R() * 120, 22 + R() * 16, 0, 0, 6.283); g.fill(); }
+    return c;
+  }
+
+  /* storm lightning: forked bolts and sheet flashes deep in the clouds, each flickering a few times */
+  function boltTree(x, y, len, ang, w, depth, out){
+    const pts = [[x, y]];
+    let heading = ang;
+    while(len > 0){
+      const step = 5 + R() * 11;
+      heading += (R() - .5) * .5;
+      heading = heading * .85 + Math.PI / 2 * .15;          // wander, but keep heading down
+      const kink = (R() - .5) * 1.6;                          // sharp zig-zags around that heading
+      x += Math.cos(heading + kink) * step; y += Math.sin(heading + kink) * step; len -= step;
+      pts.push([x, y]);
+      if(depth < 4 && len > 20 && R() < (depth ? .1 : .2))
+        boltTree(x, y, len * (.2 + R() * .45), heading + (R() < .5 ? -1 : 1) * (.5 + R() * .8), w * .6, depth + 1, out);
+    }
+    out.push({pts, w, depth});
+  }
+  function newStrike(now){
+    const scale = .45 + R() * .55, sheet = R() < .35;           // smaller = further away
+    const x = W * (.06 + R() * .88), top = H * (.1 + R() * .12);
+    const segs = [];
+    if(!sheet) boltTree(x, top, H * (.35 + R() * .35) * scale + H * .18, Math.PI / 2 + (R() - .5) * .5, 1.5 * scale + .7, 0, segs);
+    const pulses = [0, 90 + R() * 90];                           // the main stroke, a return stroke, sometimes a third
+    if(R() < .55) pulses.push(260 + R() * 160);
+    return {x, top, scale, sheet, segs, pulses, born: now};
+  }
+  // Lightning is drawn in two passes around the clouds: the bolts first, so thick cloud in front dims or hides them,
+  // then the clouds near the strike are lit from inside, brightest close to it and fading with distance.
+  function stormBolts(now){
+    if(now > nextStrike){
+      strikes.push(newStrike(now));
+      nextStrike = now + (R() < .25 ? 220 + R() * 380 : 1400 + R() * 4200);   // sometimes strikes come in quick bursts
+    }
+    strikes = strikes.filter(s => now - s.born < 900);
+    ctx.globalCompositeOperation = 'lighter';
+    for(const s of strikes){
+      const age = now - s.born;
+      let e = 0;
+      for(const p of s.pulses) if(age >= p) e = Math.max(e, 1 - (age - p) / 120);
+      s.e = e = Math.max(0, e) * s.scale;
+      if(e < .01) continue;
+      const R0 = W * .3 * s.scale + 60, g = ctx.createRadialGradient(s.x, s.top + 30, 0, s.x, s.top + 30, R0);   // light behind the clouds
+      g.addColorStop(0, `rgba(190,205,255,${.35 * e})`); g.addColorStop(1, 'rgba(150,170,230,0)');
+      ctx.fillStyle = g; ctx.fillRect(s.x - R0, s.top + 30 - R0, R0 * 2, R0 * 2);
+      if(!s.sheet){
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const core = Math.min(1, .35 + e * 2.2);   // the channel itself burns bright even on a distant strike
+        for(const b of s.segs){
+          ctx.strokeStyle = `rgba(160,185,255,${Math.min(.4, e * .5)})`; ctx.lineWidth = b.w * 3.5;   // outer glow
+          ctx.beginPath(); b.pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+          ctx.strokeStyle = `rgba(255,255,255,${b.depth ? core * .8 : core})`; ctx.lineWidth = b.w;
+          ctx.stroke();
+        }
+        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  function stormGlow(){
+    ctx.globalCompositeOperation = 'lighter';
+    for(const s of strikes){
+      const e = s.e || 0; if(e < .01) continue;
+      const reach = W * .45 * s.scale + 180;
+      for(const c of clouds){
+        const w = c.img.width * c.s, h = c.img.height * c.s;
+        const d = Math.hypot(c.x + w / 2 - s.x, c.y + h * .6 - s.top);
+        const k = Math.max(0, 1 - d / reach); if(k <= 0) continue;
+        ctx.globalAlpha = Math.min(1, e * k * k * (s.sheet ? 1.3 : 1));   // sheet lightning is all glow
+        ctx.drawImage(c.img.lit, c.x, c.y, w, h);
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = `rgba(170,185,225,${.06 * e})`; ctx.fillRect(0, 0, W, H);   // the whole sky blinks a little
+    }
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  }
+
+  // the volcano's outline, shared by drawing and the lava bombs that land on it
+  const volcanoAt = () => ({cx: W * .68, cy: H * .56, half: 34, left: W * .3, right: W * 1.06});
   function buildWeather(){
-    clouds = []; drops = []; flakes = [];
+    clouds = []; drops = []; flakes = []; parts = []; smoke = []; bolt = null; haze = []; strikes = [];
     if(!wx) return;
-    const k = wx.kind, area = W * H / (1280 * 800), night = !wx.day;
-    const shade = {clear:'#ffffff', partly:'#ffffff', cloudy:'#d3d9e0', fog:'#e3e7ea', drizzle:'#b7bec7', rain:'#a3abb5', snow:'#e9edf1', storm:'#6f7783'}[k];
-    const col = night ? {clear:'#4a5470', partly:'#4a5470', cloudy:'#3a414d', fog:'#4b525c', drizzle:'#343b46', rain:'#2e353f', snow:'#4c5462', storm:'#262b33'}[k] : shade;
-    const nC = Math.round(({clear:0, partly:4, cloudy:10, fog:4, drizzle:9, rain:10, snow:8, storm:11}[k]) * Math.max(.7, Math.min(1.6, area)));
-    const sprites = [cloudSprite(col), cloudSprite(col), cloudSprite(col)];
-    const windV = .008 + Math.min(40, wx.wind || 0) * .0012;
-    for(let i = 0; i < nC; i++) clouds.push({x: Math.random() * (W + 300) - 300, y: Math.random() * H * (k === 'partly' ? .45 : .6) - 30,
-      s: .7 + Math.random() * 1.1, v: windV * (.6 + Math.random() * .8), img: sprites[i % 3], a: k === 'partly' ? .85 : .92});
-    const nR = Math.round(({drizzle:140, rain:380, storm:520}[k] || 0) * Math.max(.5, area));
-    const slant = Math.min(.35, (wx.wind || 0) * .012);
-    for(let i = 0; i < nR; i++) drops.push({x: Math.random() * W, y: Math.random() * H, vy: (k === 'drizzle' ? .45 : .95) + Math.random() * .35, len: k === 'drizzle' ? 7 : 14 + Math.random() * 8, slant});
-    if(k === 'snow') for(let i = 0; i < Math.round(240 * Math.max(.5, area)); i++)
-      flakes.push({x: Math.random() * W, y: Math.random() * H, r: .8 + Math.random() * 2.2, vy: .02 + Math.random() * .05, ph: Math.random() * 6.3, drift: slant * .15});
+    if(wx.kind === 'storm'){   // long soft bands of murk that slide across at different speeds
+      const sprites = [0, 1].map(() => hazeSprite(wx.day ? '#4a525c' : '#1c2229'));
+      for(let i = 0; i < 7; i++){
+        const w = W * (.8 + R() * .9);
+        haze.push({x: R() * (W + w) - w, y: H * (.18 + i * .12) + (R() - .5) * 40, w, h: 110 + R() * 90,
+                   v: (.012 + R() * .03) * (i % 2 ? 1 : .6), a: .25 + R() * .25, img: sprites[i % 2]});
+      }
+    }
+    const k = wx.kind, area = Math.max(.5, W * H / (1280 * 800)), [dayCol, nightCol, nC0, band] = CLOUD[k];
+    const sprites = [0, 1, 2].map(() => cloudSprite(wx.day ? dayCol : nightCol));
+    const windV = .008 + Math.min(130, wx.wind || 0) * .0012;
+    const nC = Math.round(nC0 * Math.min(1.6, Math.max(.7, area)));
+    for(let i = 0; i < nC; i++) clouds.push({x: R() * (W + 300) - 300, y: R() * H * band - 40,
+      s: .45 + R() * .8, v: windV * (.6 + R() * .8), img: sprites[i % 3], a: k === 'partly' ? .85 : .95});
+    const slant = k === 'hurricane' ? 1.1 : Math.min(.35, (wx.wind || 0) * .012);
+    const nR = Math.round(({drizzle:140, rain:380, storm:520, tornado:220, hurricane:760}[k] || 0) * area);
+    for(let i = 0; i < nR; i++) drops.push({x: R() * W, y: R() * H, vy: (k === 'drizzle' ? .45 : .95) + R() * .35, len: k === 'drizzle' ? 7 : 14 + R() * 8, slant});
+    const nF = Math.round(({snow:240, blizzard:650}[k] || 0) * area);
+    for(let i = 0; i < nF; i++) flakes.push({x: R() * W, y: R() * H, r: .8 + R() * 2.2, ph: R() * 6.3,
+      vy: k === 'blizzard' ? .08 + R() * .1 : .02 + R() * .05, drift: k === 'blizzard' ? .35 + R() * .35 : slant * .15});
+    if(k === 'tornado')   for(let i = 0; i < 90; i++) parts.push({a: R() * 6.3, r: 20 + R() * 110, h: R() * H * .3, sp: .002 + R() * .004, s: 1.5 + R() * 3});
+    if(k === 'hurricane') for(let i = 0; i < Math.round(70 * area); i++) parts.push({x: R() * W, y: R() * H, v: 1.2 + R() * 1.4, len: 50 + R() * 110, leaf: R() < .25, rot: R() * 6.3});
+    if(k === 'dust')      for(let i = 0; i < Math.round(900 * area); i++) parts.push({x: R() * W, y: R() * H, v: .5 + R() * .9, ph: R() * 6.3, s: .8 + R() * 1.6});
+    if(k === 'wildfire'){
+      for(let i = 0; i < Math.round(160 * area); i++) parts.push({x: R() * W, y: H - R() * H * .7, vy: .04 + R() * .09, ph: R() * 6.3, s: 1 + R() * 2.2});
+      const ss = [0, 1, 2].map(() => cloudSprite(wx.day ? '#5a4c46' : '#2c2220'));
+      for(let i = 0; i < 12; i++) smoke.push({x: R() * W, y: H * .4 + R() * H * .6, s: 1 + R() * 1.4, v: .015 + R() * .03, img: ss[i % 3]});
+    }
+    if(k === 'volcano'){
+      const ss = [0, 1, 2].map(() => cloudSprite(wx.day ? '#5c5658' : '#5a4644'));   // at night the ash catches the lava's glow
+      for(let i = 0; i < 14; i++) smoke.push({t: R(), s: .6 + R() * 1.6, img: ss[i % 3], ox: (R() - .5) * 60});
+      for(let i = 0; i < 26; i++) parts.push(lavaBomb(true));
+    }
+  }
+  function lavaBomb(scatter){
+    const v = volcanoAt();
+    return {x: v.cx + (R() - .5) * 40, y: v.cy, vx: (R() - .5) * .5, vy: -(.45 + R() * .5), age: scatter ? R() * 1500 : 0};
+  }
+  function makeBolt(x0, y1){   // a jagged lightning bolt from the clouds down to y1
+    const pts = [[x0, 0]]; let x = x0, y = 0;
+    while(y < y1){ y += 18 + R() * 30; x += (R() - .5) * 60; pts.push([x, y]); }
+    return pts;
+  }
+  function lightning(now, dt, gapMin, gapMax, boltChance, area){
+    if(now > nextFlash){
+      flash = 1; nextFlash = now + (R() < .3 ? 160 : gapMin + R() * (gapMax - gapMin));
+      bolt = R() < boltChance ? makeBolt(area ? area.x + (R() - .5) * area.w : W * (.15 + R() * .7), area ? area.y : H * (.45 + R() * .3)) : null;
+    }
+    if(flash > .01){
+      ctx.fillStyle = `rgba(235,240,255,${flash * .5})`; ctx.fillRect(0, 0, W, H);
+      if(bolt){
+        ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, flash * 1.4)})`; ctx.lineWidth = 2.2; ctx.shadowColor = '#cfe0ff'; ctx.shadowBlur = 12;
+        ctx.beginPath(); bolt.forEach(([x, y], i) => i ? ctx.lineTo(x, y + (area ? area.y0 : 0)) : ctx.moveTo(x, y + (area ? area.y0 : 0))); ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      flash *= Math.pow(.985, dt);
+    }
   }
   function drawWeather(now, dt){
     const k = wx ? wx.kind : 'clear', day = wx ? wx.day : (new Date().getHours() >= 7 && new Date().getHours() < 19);
@@ -747,13 +1000,14 @@ const sky = (() => {
     const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, top); sky.addColorStop(1, bottom);
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    const t = still ? 0 : now, move = !still;
     const clearish = k === 'clear' || k === 'partly';
-    if(clearish && day){   // sun with a soft glow
-      const sx = W * .82, sy = H * .2, R = Math.min(W, H) * .38;
-      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
-      g.addColorStop(0, 'rgba(255,244,200,.95)'); g.addColorStop(.12, 'rgba(255,236,170,.6)'); g.addColorStop(1, 'rgba(255,236,170,0)');
+    if((clearish && day) || k === 'dust'){   // the sun; through a dust storm only a pale disc shows
+      const sx = W * .82, sy = H * .2, R0 = Math.min(W, H) * (k === 'dust' ? .2 : .38), dusty = k === 'dust';
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R0);
+      g.addColorStop(0, dusty ? 'rgba(255,236,190,.55)' : 'rgba(255,244,200,.95)'); g.addColorStop(.12, dusty ? 'rgba(255,220,160,.25)' : 'rgba(255,236,170,.6)'); g.addColorStop(1, 'rgba(255,236,170,0)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#fff6d6'; ctx.beginPath(); ctx.arc(sx, sy, 26, 0, 6.283); ctx.fill();
+      ctx.fillStyle = dusty ? 'rgba(255,240,210,.5)' : '#fff6d6'; ctx.beginPath(); ctx.arc(sx, sy, 26, 0, 6.283); ctx.fill();
     }
     if(clearish && !day){  // stars and the moon
       ctx.globalCompositeOperation = 'lighter';
@@ -767,37 +1021,150 @@ const sky = (() => {
       ctx.fillStyle = g; ctx.fillRect(mx - 90, my - 90, 180, 180);
       ctx.fillStyle = '#f2eee0'; ctx.beginPath(); ctx.arc(mx, my, 20, 0, 6.283); ctx.fill();
     }
+
+    if(k === 'volcano'){
+      const v = volcanoAt();
+      // ash plume: puffs climb from the crater, spread out and drift with the wind
+      for(const p of smoke){
+        if(move){ p.t += dt * .00006; if(p.t > 1){ p.t = 0; p.ox = (R() - .5) * 60; } }
+        const s = p.s * (.5 + p.t * 2.2), w = p.img.width * s, h = p.img.height * s;
+        ctx.globalAlpha = .9 * Math.min(1, p.t * 6) * (1 - p.t * .6);
+        ctx.drawImage(p.img, v.cx + p.ox + p.t * W * .25 - w / 2, v.cy - 40 - p.t * H * .6 - h / 2, w, h);
+      }
+      ctx.globalAlpha = 1;
+      if(move) lightning(now, dt, 3500, 9000, .9, {x: v.cx + W * .08, w: 160, y: H * .25, y0: H * .1});   // volcanic lightning in the plume
+      // the mountain, its glowing crater and lava running down the sides
+      ctx.fillStyle = day ? '#2a2224' : '#140e10';
+      ctx.beginPath(); ctx.moveTo(v.left, H); ctx.lineTo(v.cx - v.half, v.cy); ctx.lineTo(v.cx + v.half, v.cy); ctx.lineTo(v.right, H); ctx.closePath(); ctx.fill();
+      const glow = ctx.createRadialGradient(v.cx, v.cy, 0, v.cx, v.cy, 120);
+      glow.addColorStop(0, 'rgba(255,170,60,.85)'); glow.addColorStop(.35, 'rgba(255,90,20,.35)'); glow.addColorStop(1, 'rgba(255,60,0,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = glow; ctx.fillRect(v.cx - 120, v.cy - 120, 240, 240);
+      ctx.lineWidth = 3; ctx.lineCap = 'round';
+      [[-.55, .9], [.35, 1], [.9, .7]].forEach(([dir, len], i) => {
+        ctx.strokeStyle = `rgba(255,${110 + i * 20},40,${.6 + .3 * Math.sin(t * .003 + i)})`;
+        ctx.beginPath(); ctx.moveTo(v.cx + dir * 20, v.cy + 2);
+        for(let s = 1; s <= 6; s++) ctx.lineTo(v.cx + dir * (20 + s * 26 * len) + Math.sin(s * 1.7 + i) * 8, v.cy + s * (H - v.cy) * .14 * len);
+        ctx.stroke();
+      });
+      for(const b of parts){   // lava bombs thrown out of the crater
+        if(move){ b.age += dt; b.x += b.vx * dt; b.vy += .0009 * dt; b.y += b.vy * dt; }
+        if(b.y > v.cy + 40 || b.age > 4000) Object.assign(b, lavaBomb(false));
+        ctx.fillStyle = 'rgba(255,150,50,.95)'; ctx.fillRect(b.x, b.y, 3, 3);
+        ctx.fillStyle = 'rgba(255,90,20,.35)'; ctx.fillRect(b.x - b.vx * 18, b.y - b.vy * 18, 2, 2);
+      }
+      ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'butt';
+    }
+
+    if(k === 'storm' && move) stormBolts(now);   // behind the clouds
     for(const c of clouds){
-      if(!still){ c.x += c.v * dt; if(c.x > W + 40) c.x = -c.img.width * c.s; }
+      if(move){ c.x += c.v * dt; if(c.x > W + 40) c.x = -c.img.width * c.s; }
       ctx.globalAlpha = c.a; ctx.drawImage(c.img, c.x, c.y, c.img.width * c.s, c.img.height * c.s);
     }
     ctx.globalAlpha = 1;
-    if(k === 'fog'){   // slow drifting haze bands
+
+    if(k === 'storm'){
+      if(move) stormGlow();                 // clouds lit from inside by the strikes...
+      for(const h of haze){                 // ...and the murk slides across in front of it all
+        if(move){ h.x += h.v * dt; if(h.x > W) h.x = -h.w; }
+        ctx.globalAlpha = h.a; ctx.drawImage(h.img, h.x, h.y, h.w, h.h);
+      }
+      ctx.globalAlpha = 1;
+      const gloom = ctx.createLinearGradient(0, H * .5, 0, H);   // darker toward the ground
+      gloom.addColorStop(0, 'rgba(0,0,0,0)'); gloom.addColorStop(1, `rgba(0,0,0,${day ? .35 : .5})`);
+      ctx.fillStyle = gloom; ctx.fillRect(0, H * .5, W, H * .5);
+    }
+
+    if(k === 'tornado'){
+      const top = H * .22, ground = H * .96, fx = W * .62 + Math.sin(t * .00025) * W * .12, N = 110;
+      const tone = day ? '62,68,64' : '92,100,96';   // lighter at night so the funnel stands out from the dark sky
+      for(let i = 0; i < N; i++){   // a twisting funnel built from many thin, overlapping, wobbling slices
+        const f = i / N, y = top + f * (ground - top), w = (W * .2) * Math.pow(1 - f, 1.8) + 12;
+        const x = fx + Math.sin(t * .002 + f * 5) * 16 * f + Math.sin(t * .0007) * 26 * f;
+        ctx.fillStyle = `rgba(${tone},${.16 + f * .14})`;
+        ctx.beginPath(); ctx.ellipse(x, y, w / 2, Math.max(5, w * .16), 0, 0, 6.283); ctx.fill();
+        if(i % 9 === 4){ ctx.strokeStyle = 'rgba(190,200,190,.16)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y, w / 2 * .85, Math.max(3, w * .1), 0, (t * .005 + f * 9) % 6.283, (t * .005 + f * 9) % 6.283 + 2.2); ctx.stroke(); }
+      }
+      const bx = fx + Math.sin(t * .002 + 5) * 16 + Math.sin(t * .0007) * 26;
+      const dust = ctx.createRadialGradient(bx, ground, 0, bx, ground, 150);
+      dust.addColorStop(0, day ? 'rgba(120,100,70,.7)' : 'rgba(60,50,36,.7)'); dust.addColorStop(1, 'rgba(120,100,70,0)');
+      ctx.fillStyle = dust; ctx.fillRect(bx - 150, ground - 150, 300, 300);
+      ctx.fillStyle = day ? 'rgba(40,36,30,.85)' : 'rgba(20,18,16,.85)';
+      for(const p of parts){   // debris whirling round the base
+        if(move) p.a += p.sp * dt;
+        ctx.fillRect(bx + Math.cos(p.a) * p.r, ground - p.h + Math.sin(p.a) * p.r * .25, p.s, p.s);
+      }
+    }
+    if(k === 'wildfire'){
+      for(const p of smoke){   // smoke rolling up and away
+        if(move){ p.y -= p.v * dt; p.x -= p.v * .4 * dt; if(p.y < -p.img.height * p.s){ p.y = H; p.x = R() * W * 1.2; } }
+        ctx.globalAlpha = .8 * Math.min(1, p.y / (H * .5)); ctx.drawImage(p.img, p.x, p.y, p.img.width * p.s, p.img.height * p.s);
+      }
+      ctx.globalAlpha = 1;
+      const glow = ctx.createLinearGradient(0, H * .55, 0, H);
+      glow.addColorStop(0, 'rgba(255,90,20,0)'); glow.addColorStop(1, 'rgba(255,110,30,.55)');
+      ctx.fillStyle = glow; ctx.fillRect(0, H * .55, W, H * .45);
+      // flame front along the bottom: a flickering ridge filled hot at the base
+      const fl = ctx.createLinearGradient(0, H * .72, 0, H);
+      fl.addColorStop(0, 'rgba(255,80,20,0)'); fl.addColorStop(.35, 'rgba(255,110,30,.85)'); fl.addColorStop(.75, 'rgba(255,190,70,.95)'); fl.addColorStop(1, 'rgba(255,240,170,1)');
+      ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(0, H);
+      for(let x = 0; x <= W; x += 8){
+        const h = 50 + 34 * Math.sin(x * .021 + t * .004) + 22 * Math.sin(x * .057 - t * .007) + 14 * Math.sin(x * .13 + t * .013);
+        ctx.lineTo(x, H - Math.max(18, h));
+      }
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
+      for(const e of parts){   // embers drifting upward
+        if(move){ e.y -= e.vy * dt; e.x += Math.sin(t * .002 + e.ph) * .03 * dt; if(e.y < -4){ e.y = H; e.x = R() * W; } }
+        ctx.globalAlpha = .5 + .5 * Math.abs(Math.sin(t * .006 + e.ph));
+        ctx.fillStyle = '#ffb347'; ctx.fillRect(e.x, e.y, e.s, e.s);
+      }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    if(k === 'fog' || k === 'dust'){   // slow drifting haze bands
+      const c = k === 'dust' ? '214,160,96' : '235,238,240', a = k === 'dust' ? (day ? .5 : .25) : (day ? .45 : .18);
       for(let i = 0; i < 4; i++){
-        const y = H * (.25 + i * .2) + Math.sin(now * .0002 + i) * 20, g = ctx.createLinearGradient(0, y - 60, 0, y + 60);
-        g.addColorStop(0, 'rgba(235,238,240,0)'); g.addColorStop(.5, `rgba(235,238,240,${day ? .45 : .18})`); g.addColorStop(1, 'rgba(235,238,240,0)');
+        const y = H * (.25 + i * .2) + Math.sin(t * .0002 + i) * 20, g = ctx.createLinearGradient(0, y - 60, 0, y + 60);
+        g.addColorStop(0, `rgba(${c},0)`); g.addColorStop(.5, `rgba(${c},${a})`); g.addColorStop(1, `rgba(${c},0)`);
         ctx.fillStyle = g; ctx.fillRect(0, y - 60, W, 120);
+      }
+    }
+    if(k === 'dust'){   // blowing sand
+      ctx.fillStyle = day ? 'rgba(120,80,40,.55)' : 'rgba(200,150,90,.35)';
+      for(const p of parts){
+        if(move){ p.x += p.v * dt; p.y += Math.sin(t * .003 + p.ph) * .05 * dt; if(p.x > W){ p.x = -4; p.y = R() * H; } }
+        ctx.fillRect(p.x, p.y, p.s * 2.2, p.s * .7);
       }
     }
     if(drops.length){
       ctx.strokeStyle = day ? 'rgba(225,232,242,.55)' : 'rgba(170,185,205,.45)'; ctx.lineWidth = 1; ctx.beginPath();
       for(const d of drops){
-        if(!still){ d.y += d.vy * dt; d.x += d.vy * d.slant * dt; if(d.y > H){ d.y = -d.len; d.x = Math.random() * W; } if(d.x > W) d.x -= W; }
+        if(move){ d.y += d.vy * dt; d.x += d.vy * d.slant * dt; if(d.y > H){ d.y = -d.len; d.x = R() * W; } if(d.x > W) d.x -= W; }
         ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.len * d.slant, d.y - d.len);
       }
       ctx.stroke();
     }
+    if(k === 'hurricane'){   // wind streaks and torn leaves tearing across
+      ctx.strokeStyle = day ? 'rgba(235,240,245,.28)' : 'rgba(170,185,200,.22)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      for(const p of parts){
+        if(move){ p.x += p.v * dt; p.y += p.v * .12 * dt; p.rot += .02 * dt; if(p.x > W + p.len){ p.x = -p.len; p.y = R() * H; } if(p.y > H) p.y = 0; }
+        if(!p.leaf){ ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.len, p.y - p.len * .12); }
+      }
+      ctx.stroke();
+      ctx.fillStyle = day ? 'rgba(52,70,40,.85)' : 'rgba(30,40,24,.85)';
+      for(const p of parts) if(p.leaf){ ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-4, -1.5, 8, 3); ctx.restore(); }
+    }
     if(flakes.length){
       ctx.fillStyle = 'rgba(255,255,255,.88)';
       for(const f of flakes){
-        if(!still){ f.y += f.vy * dt; f.x += (Math.sin(now * .001 + f.ph) * .02 + f.drift) * dt; if(f.y > H + 4){ f.y = -4; f.x = Math.random() * W; } if(f.x > W + 4) f.x = -4; }
+        if(move){ f.y += f.vy * dt; f.x += (Math.sin(now * .001 + f.ph) * .02 + f.drift) * dt; if(f.y > H + 4){ f.y = -4; f.x = R() * W; } if(f.x > W + 4){ f.x = -4; f.y = R() * H; } }
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283); ctx.fill();
       }
     }
-    if(k === 'storm' && !still){   // lightning: a sudden flash that fades, sometimes twice
-      if(now > nextFlash){ flash = 1; nextFlash = now + (Math.random() < .3 ? 180 : 4000 + Math.random() * 8000); }
-      if(flash > .01){ ctx.fillStyle = `rgba(235,240,255,${flash * .55})`; ctx.fillRect(0, 0, W, H); flash *= Math.pow(.985, dt); }
+    if(k === 'blizzard'){   // gusts of white-out
+      ctx.fillStyle = `rgba(242,245,248,${(day ? .18 : .08) + .1 * Math.sin(t * .0007)})`; ctx.fillRect(0, 0, W, H);
     }
+    if(move && k === 'tornado') lightning(now, dt, 5000, 12000, .5);
+    if(move && k === 'hurricane') lightning(now, dt, 1800, 6000, .45);
   }
 
   function shoot(now){
@@ -809,6 +1176,7 @@ const sky = (() => {
   function draw(now){
     const dt = Math.min(50, now - (last || now)); last = now;
     if(mode === 'weather') return drawWeather(now, dt);
+    if(mode === 'matrix') return drawMatrix(dt);
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     for(const s of stars){
@@ -897,8 +1265,10 @@ async function loadWeather(force){
     const cur = (await r.json()).current;
     w = {t: Date.now(), kind: wxKind(cur.weather_code), temp: Math.round(cur.temperature_2m), unit: fahrenheit ? '°F' : '°C', day: !!cur.is_day, wind: cur.wind_speed_10m};
     writeJSON(WX_KEY, w);
+    if(board.look.fx !== 'weather') return;   // you picked another scene while we were asking
     sky.weather(w); showWx(w);
   }catch(e){
+    if(board.look.fx !== 'weather') return;
     if(w){ sky.weather(w); showWx(w); }   // keep the last reading if a refresh fails
     else { sky.weather(null); wxBadge(`<span>${e && e.code === 1 ? 'Location is blocked for this page, so showing a plain sky' : 'Couldn’t get the weather right now'}</span>`); }
   }finally{ wxBusy = false; }
